@@ -6,7 +6,7 @@ import Foundation
 import SwiftUI
 
 /// Type that stores the state of the app or module allowing feeding actions.
-@dynamicMemberLookup public final class Store<S, A>: ObservableObject {
+@dynamicMemberLookup public final class Store<S, A>: ObservableObject where A: Equatable {
   
   @Published private(set) var state: S {
     didSet {

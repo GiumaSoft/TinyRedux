@@ -6,7 +6,7 @@ import Foundation
 @MainActor
 public func combine<S, A>(
   _ reducers: Reducer<S, A>...
-) -> Reducer<S, A> {
+) -> Reducer<S, A> where A: Equatable {
   
   Reducer { state, action in
     reducers.forEach {
@@ -21,7 +21,7 @@ public func pullback<LS, GS, LA, GA>(
   _ reducer: Reducer<LS, LA>,
   toState state: WritableKeyPath<GS, LS>,
   toAction action: WritableKeyPath<GA, LA?>
-) -> Reducer<GS, GA> {
+) -> Reducer<GS, GA> where LA: Equatable, GA: Equatable {
   
   Reducer { gs, ga in
     guard let la = ga[keyPath: action] else { return }
@@ -32,15 +32,19 @@ public func pullback<LS, GS, LA, GA>(
 
 @MainActor
 public func logger<S, A>(
-  _ reducer: Reducer<S, A>
-) -> Reducer<S, A> {
+  _ reducer: Reducer<S, A>,
+  excludedActions actions: Array<A> = []
+) -> Reducer<S, A> where A: Equatable {
   Reducer { state, action in
     reducer.reduce(&state, action)
-    print("ℹ️ [[ Action ]]: \(action)")
-    //let newState = state
-    // print("State:")
-    // print("\(newState)")
-    print("---")
+    
+    if !actions.contains(action) {
+      print("ℹ️ [[ Action ]]: \(action)")
+      //let newState = state
+      // print("State:")
+      // print("\(newState)")
+      print("---")
+    }
   }
 }
 
@@ -49,7 +53,7 @@ public func pullback<LS, GS, LA, GA>(
   toState state: WritableKeyPath<GS, LS>,
   toAction action: WritableKeyPath<GA, LA?>,
   toGlobalAction tGA: @escaping (LA) -> GA
-) -> AnyMiddleware<GS, GA> {
+) -> AnyMiddleware<GS, GA> where LA: Equatable, GA: Equatable {
   
   AnyMiddleware<GS, GA> { gs, gd, gn, ga in
     if
@@ -68,7 +72,7 @@ public func pullback<LS, GS, LA, GA>(
 
 public func logger<S, A>(
   _ middleware: AnyMiddleware<S, A>
-) -> AnyMiddleware<S, A> {
+) -> AnyMiddleware<S, A> where A: Equatable {
   AnyMiddleware { getState, dispatch, next, action in
     // Customize here your logs pre middleware invocation.
     middleware.run(RunArguments(getState, dispatch, next, action))

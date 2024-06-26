@@ -12,7 +12,10 @@ extension ExampleApp {
       combine(
         pullback(timerReducer, toState: \.timerState, toAction: \.timer),
         pullback(counterReducer, toState: \.counterState, toAction: \.counter)
-      )
+      ),
+      excludedActions: [
+        .counter(.decreaseCounter)
+      ]
     ),
     middlewares: [
       pullback(timerMiddleware, toState: \.timerState, toAction: \.timer, toGlobalAction: { .timer($0) }),

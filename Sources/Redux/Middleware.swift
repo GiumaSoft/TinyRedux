@@ -8,12 +8,12 @@ public typealias RunArguments<S, A> = (getState: () -> S, dispatch: (A) -> Void,
 
 public protocol Middleware {
   associatedtype S
-  associatedtype A
+  associatedtype A: Equatable
   
   func run(_ args: RunArguments<S, A>) -> Void
 }
 
-public struct AnyMiddleware<S, A>: Middleware {
+public struct AnyMiddleware<S, A>: Middleware where A: Equatable {
   private let job: (RunArguments<S, A>) -> Void
   
   public init(job: @escaping (RunArguments<S, A>) -> Void) {

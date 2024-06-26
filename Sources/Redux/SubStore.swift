@@ -7,7 +7,7 @@ import SwiftUI
 
 
 /// Type that stores the state of the app or module allowing feeding actions.
-@dynamicMemberLookup public final class SubStore<S, A, LS, LA>: ObservableObject {
+@dynamicMemberLookup public final class SubStore<S, A, LS, LA>: ObservableObject where A: Equatable, LA: Equatable {
 
   @ObservedObject private var store: Store<S, A>
 
