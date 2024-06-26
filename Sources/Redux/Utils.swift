@@ -33,17 +33,17 @@ public func pullback<LS, GS, LA, GA>(
 @MainActor
 public func logger<S, A>(
   _ reducer: Reducer<S, A>,
-  excludedActions actions: Array<A> = []
+  excludedActions actions: Array<A> = [],
+  completion: @escaping (S, A) -> Void = { state, action in
+    print("ℹ️ [[ Action ]]: \(action)")
+    print("---")
+  }
 ) -> Reducer<S, A> where A: Equatable {
   Reducer { state, action in
     reducer.reduce(&state, action)
     
     if !actions.contains(action) {
-      print("ℹ️ [[ Action ]]: \(action)")
-      //let newState = state
-      // print("State:")
-      // print("\(newState)")
-      print("---")
+      completion(state, action)
     }
   }
 }
@@ -77,4 +77,12 @@ public func logger<S, A>(
     // Customize here your logs pre middleware invocation.
     middleware.run(RunArguments(getState, dispatch, next, action))
   }
+}
+
+func logHandler<S, A>(state: S, action: A) -> Void {
+  print("ℹ️ [[ Action ]]: \(action)")
+  //let newState = state
+  // print("State:")
+  // print("\(newState)")
+  print("---")
 }
