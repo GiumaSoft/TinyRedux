@@ -5,6 +5,7 @@ import Foundation
 
 
 enum CounterActions {
+  case proceed
   case increaseCounter
   case decreaseCounter
 }

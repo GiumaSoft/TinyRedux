@@ -16,12 +16,15 @@ final class AsyncCounterMiddleware: Middleware {
         try await Task.sleep(for: .seconds(2))
         next(.increaseCounter)
       }
+      //next(.proceed)
       return
     case .decreaseCounter:
       if getState().counter == 0 {
         print("State counter is already 0.")
         return
       }
+    default:
+      break
     }
     
     next(action)

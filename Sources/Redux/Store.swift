@@ -17,6 +17,8 @@ import SwiftUI
   private nonisolated let statePublisher: CurrentValueSubject<S, Never>
   
   private let reducer: Reducer<S, A>
+  private var actions: Array<A> = []
+  private var isProcessing: Bool = false
   private var middlewares: [AnyMiddleware<S, A>]
   
   public init(
@@ -36,19 +38,50 @@ import SwiftUI
   }
  
   public func dispatch(_ action: A) {
-    let applyMiddleware = middlewares.reversed().reduce(
-      { action in self.resolve(action) }
+    self.actions.append(action)
+    if !isProcessing {
+      serialDispatcher()
+    }
+  }
+  
+  public func dispatch(_ actions: A...) {
+    self.dispatch(Array(actions))
+  }
+  
+  public func dispatch(_ actions: Array<A>) {
+    self.actions.append(contentsOf: actions)
+    if !isProcessing {
+      serialDispatcher()
+    }
+  }
+  
+  private func serialDispatcher() {
+    isProcessing = true
+    let action = actions.removeFirst()
+    applyMiddlewares(action) {
+      self.reduce($0)
+      
+      if self.actions.isEmpty {
+        self.isProcessing = false
+      } else {
+        self.serialDispatcher()
+      }
+    }
+  }
+  
+  private func applyMiddlewares(_ action: A, reduce: @escaping (A) -> Void) {
+    let resolveMiddlewares = middlewares.reversed().reduce(
+      { action in reduce(action) }
     ) { next, middleware in
       { action in middleware.run(RunArguments(self.getState, self.dispatch, next, action)) }
     }
-    
-    applyMiddleware(action)
+    resolveMiddlewares(action)
   }
   
-  private func resolve(_ action: A) {
-    Task { @MainActor [weak self] in
+  private func reduce(_ action: A) {
+    DispatchQueue.main.async { [weak self] in
       guard let self else { return }
-      self.reducer.reduce(&self.state, action)
+      reducer.reduce(&state, action)
     }
   }
   

@@ -40,6 +40,15 @@ import SwiftUI
     store.dispatch(toGlobalAction(action))
   }
   
+  public func dispatch(_ actions: LA...) {
+    self.dispatch(Array(actions))
+  }
+  
+  public func dispatch(_ actions: Array<LA>) {
+    let ga = actions.map { toGlobalAction($0) }
+    store.dispatch(ga)
+  }
+  
   private func getState() -> LS {
     store.state[keyPath: toLocalState]
   }

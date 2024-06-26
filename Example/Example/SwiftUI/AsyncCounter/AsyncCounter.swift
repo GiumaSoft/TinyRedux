@@ -28,8 +28,10 @@ struct AsyncCounter: View {
   
   @ViewBuilder private var _plusButton_: some View {
     Button {
-      // Add date item to the list
-      store.dispatch(.increaseCounter)
+      // Increase counter
+      store.dispatch(
+        .increaseCounter
+      )
     } label: {
       Image(systemName: "plus.circle.fill")
         .resizable()
@@ -41,8 +43,10 @@ struct AsyncCounter: View {
   
   @ViewBuilder private var _minusButton_: some View {
     Button {
-      // Remove last inserted date
-      store.dispatch(.decreaseCounter)
+      // decrease counter
+      store.dispatch(
+        .decreaseCounter
+      )
     } label: {
       Image(systemName: "minus.circle.fill")
         .resizable()

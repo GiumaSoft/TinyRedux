@@ -15,5 +15,7 @@ let counterReducer = Reducer<CounterState, CounterActions> { state, action in
   case .increaseCounter:
     state.counter += 1
     return
+  default:
+    break
   }
 }
