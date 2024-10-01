@@ -11,6 +11,7 @@ let package = Package(
     products: [
         .library(
             name: "TinyRedux",
+            type: .dynamic,
             targets: ["TinyRedux"]
         )
     ],

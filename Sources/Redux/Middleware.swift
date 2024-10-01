@@ -4,10 +4,10 @@
 import Foundation
 
 
-public typealias RunArguments<S, A> = (getState: () -> S, dispatch: (A) -> Void, next: (A) -> Void, action: A)
+public typealias RunArguments<S: Sendable, A: Equatable> = (getState: () -> S, dispatch: (A) -> Void, next: (A) -> Void, action: A)
 
 public protocol Middleware {
-  associatedtype S
+  associatedtype S: Sendable
   associatedtype A: Equatable
   
   func run(_ args: RunArguments<S, A>) -> Void

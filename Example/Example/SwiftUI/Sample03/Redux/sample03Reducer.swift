@@ -6,7 +6,7 @@ import TinyRedux
 
 
 @MainActor
-let bindingReducer = Reducer<BindingState, BindingActions> { state, action in
+let sample03Reducer = Reducer<Sample03State, Sample03Actions> { state, action in
   switch action {
   case .setHeader(let header):
     state.header = header

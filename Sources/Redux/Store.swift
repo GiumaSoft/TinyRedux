@@ -6,9 +6,9 @@ import Foundation
 import SwiftUI
 
 /// Type that stores the state of the app or module allowing feeding actions.
-@dynamicMemberLookup public final class Store<S, A>: ObservableObject where A: Equatable {
+@dynamicMemberLookup public final class Store<S, A>: ObservableObject where S: Sendable, A: Equatable {
   
-  @Published private(set) var state: S {
+  @Published public private(set) var state: S {
     didSet {
       statePublisher.value = state
     }
@@ -17,14 +17,14 @@ import SwiftUI
   private nonisolated let statePublisher: CurrentValueSubject<S, Never>
   
   private let reducer: Reducer<S, A>
-  private var actions: Array<A> = []
-  private var isProcessing: Bool = false
-  private var middlewares: [AnyMiddleware<S, A>]
+  private let middlewares: Array<AnyMiddleware<S, A>>
+  private var dispatchedActions: Array<A> = []
+  private var isRunning: Bool = false
   
   public init(
     initialState state: S,
     reducer: Reducer<S, A>,
-    middlewares: [AnyMiddleware<S, A>]
+    middlewares: Array<AnyMiddleware<S, A>>
   ) {
     self.state = state
     self.reducer = reducer
@@ -34,47 +34,52 @@ import SwiftUI
   
   /// A subscript providing access to the state of the store.
   public subscript<T>(dynamicMember keyPath: KeyPath<S, T>) -> T {
-    self.state[keyPath: keyPath]
-  }
- 
-  public func dispatch(_ action: A) {
-    self.actions.append(action)
-    if !isProcessing {
-      serialDispatcher()
-    }
+    state[keyPath: keyPath]
   }
   
   public func dispatch(_ actions: A...) {
-    self.dispatch(Array(actions))
+    dispatch(actions)
   }
   
   public func dispatch(_ actions: Array<A>) {
-    self.actions.append(contentsOf: actions)
-    if !isProcessing {
-      serialDispatcher()
+    actions.forEach { dispatchedActions.insert($0, at: 0) }
+    if !isRunning {
+      runDispatcher()
     }
   }
   
-  private func serialDispatcher() {
-    isProcessing = true
-    let action = actions.removeFirst()
-    applyMiddlewares(action) {
-      self.reduce($0)
-      
-      if self.actions.isEmpty {
-        self.isProcessing = false
-      } else {
-        self.serialDispatcher()
+  public func dispatch(_ action: A) {
+    dispatchedActions.insert(action, at: 0)
+    if !isRunning {
+      runDispatcher()
+    }
+  }
+  
+  private func runDispatcher() {
+    if let action = dispatchedActions.popLast() {
+      isRunning = true
+      runMiddlewares(action) { action in
+        self.reduce(action)
+        self.runDispatcher()
+      }
+    } else {
+      isRunning = false
+    }
+  }
+  
+  private func runMiddlewares(_ action: A, reduce: @escaping (A) -> Void) {
+    let resolveMiddlewares = middlewares.reversed().reduce(
+      { action in
+        reduce(action)
+      }
+    ) { next, middleware in
+      { action in
+        middleware.run(
+          RunArguments(self.getState, self.dispatch, next, action)
+        )
       }
     }
-  }
-  
-  private func applyMiddlewares(_ action: A, reduce: @escaping (A) -> Void) {
-    let resolveMiddlewares = middlewares.reversed().reduce(
-      { action in reduce(action) }
-    ) { next, middleware in
-      { action in middleware.run(RunArguments(self.getState, self.dispatch, next, action)) }
-    }
+    
     resolveMiddlewares(action)
   }
   

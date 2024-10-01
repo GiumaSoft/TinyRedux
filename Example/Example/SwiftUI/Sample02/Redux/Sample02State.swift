@@ -4,15 +4,15 @@
 import Foundation
 
 
-typealias TimerState = (
+typealias Sample02State = (
   timeCount: Int,
   timerIsRunning: Bool
 )
 
 extension AppState {
-  var timerState: TimerState {
+  var sample02State: Sample02State {
     get {
-      TimerState(
+      Sample02State(
         self.timeCount,
         self.timerIsRunning
       )

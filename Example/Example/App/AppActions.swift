@@ -5,19 +5,19 @@ import Foundation
 
 
 enum AppActions {
-  case timer(TimerActions)
-  case counter(CounterActions)
-  case binding(BindingActions)
+  case sample01(Sample01Actions)
+  case sample02(Sample02Actions)
+  case sample03(Sample03Actions)
 }
 
 extension AppActions: Equatable {
   static func == (lhs: AppActions, rhs: AppActions) -> Bool {
     switch (lhs, rhs) {
-    case (.timer(let left), .timer(let right)):
+    case (.sample01(let left), .sample01(let right)):
       left == right
-    case (.counter(let left), .counter(let right)):
+    case (.sample02(let left), .sample02(let right)):
       left == right
-    case (.binding(let left), .binding(let right)):
+    case (.sample03(let left), .sample03(let right)):
       left == right
     default:
       false

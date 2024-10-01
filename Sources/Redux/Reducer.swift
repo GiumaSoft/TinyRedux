@@ -10,7 +10,7 @@ import Foundation
 /// - They should only calculate the new state value based on the state and action arguments.
 /// - They are  allowed to modify the existing state in a way that preserve that global state integrity, since they are the only function that is allowed to do that in a synchronous way you don't risk any data race even if you are dispatching actions from different threads in an asynchronous way..
 /// - They must not do any asynchronous logic or cause other "side effects", they are not allowed to dispatch new actions.
-public struct Reducer<S, A> where A: Equatable {
+public struct Reducer<S, A> where S: Sendable, A: Equatable {
   ///
   ///
   @usableFromInline

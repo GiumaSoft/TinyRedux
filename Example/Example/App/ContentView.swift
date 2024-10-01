@@ -9,17 +9,20 @@ struct ContentView: View {
   var body: some View {
     NavigationStack {
       List {
-        NavigationLink("AsyncCounter") {
-          AsyncCounter()
+        NavigationLink("Sample01") {
+          Sample.SwiftUI.Sample01View()
         }
-        NavigationLink("DigitalTimer") {
-          DigitalTimerView()
+        
+        NavigationLink("Sample02") {
+          Sample.SwiftUI.Sample02View()
         }
-        NavigationLink("UnidirectionalBinding") {
-          UnidirectionalBindingView()
+        
+        NavigationLink("Sample03") {
+          Sample.SwiftUI.Sample03View()
         }
       }
       .listStyle(.plain)
+      .safeAreaPadding(.top)
     }
   }
 }
@@ -30,12 +33,12 @@ struct ContentView: View {
   ContentView()
     .padding()
     .environmentObject(
-      ExampleApp.timerStore
+      ExampleApp.sample01Store
     )
     .environmentObject(
-      ExampleApp.counterStore
+      ExampleApp.sample02Store
     )
     .environmentObject(
-      ExampleApp.bindingStore
+      ExampleApp.sample03Store
     )
 }

@@ -8,17 +8,17 @@ import TinyRedux
 @main
 struct ExampleApp: App {
   @StateObject private var store = Self.defaultStore
-  @StateObject private var bindingStore = Self.bindingStore
-  @StateObject private var counterStore = Self.counterStore
-  @StateObject private var timerStore = Self.timerStore
+  @StateObject private var sample01Store = Self.sample01Store
+  @StateObject private var sample02Store = Self.sample02Store
+  @StateObject private var sample03Store = Self.sample03Store
   
   var body: some Scene {
     WindowGroup {
       ContentView()
         .environmentObject(store)
-        .environmentObject(bindingStore)
-        .environmentObject(counterStore)
-        .environmentObject(timerStore)
+        .environmentObject(sample01Store)
+        .environmentObject(sample02Store)
+        .environmentObject(sample03Store)
     }
   }
 }

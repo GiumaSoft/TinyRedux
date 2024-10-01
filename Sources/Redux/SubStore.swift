@@ -7,7 +7,7 @@ import SwiftUI
 
 
 /// Type that stores the state of the app or module allowing feeding actions.
-@dynamicMemberLookup public final class SubStore<S, A, LS, LA>: ObservableObject where A: Equatable, LA: Equatable {
+@dynamicMemberLookup public final class SubStore<S, A, LS, LA>: ObservableObject where S: Sendable, LS: Sendable, A: Equatable, LA: Equatable {
 
   @ObservedObject private var store: Store<S, A>
 
@@ -36,17 +36,18 @@ import SwiftUI
     store.state[keyPath: toLocalState]
   }
   
-  public func dispatch(_ action: LA) {
-    store.dispatch(toGlobalAction(action))
-  }
-  
   public func dispatch(_ actions: LA...) {
-    self.dispatch(Array(actions))
+    dispatch(actions)
   }
   
   public func dispatch(_ actions: Array<LA>) {
-    let ga = actions.map { toGlobalAction($0) }
-    store.dispatch(ga)
+    store.dispatch(
+      actions.map { toGlobalAction($0) }
+    )
+  }
+  
+  public func dispatch(_ action: LA) {
+    store.dispatch(toGlobalAction(action))
   }
   
   private func getState() -> LS {
@@ -69,7 +70,9 @@ extension SubStore {
   
   public func reducedBind<T>(_ keyPath: KeyPath<LS, T>, _ action: @escaping (T) -> LA) -> Binding<T> {
     store.reducedBind(toLocalState.appending(path: keyPath)) { newValue in
-      self.toGlobalAction(action(newValue))
+      self.toGlobalAction(
+        action(newValue)
+      )
     }
   }
 }

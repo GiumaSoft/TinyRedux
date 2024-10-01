@@ -4,15 +4,15 @@
 import Foundation
 
 
-typealias BindingState = (
+typealias Sample03State = (
   header: String,
   message: String
 )
 
 extension AppState {
-  var bindingState: BindingState {
+  var sample03State: Sample03State {
     get {
-      BindingState(
+      Sample03State(
         self.header,
         self.message
       )
