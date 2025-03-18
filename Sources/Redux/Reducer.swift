@@ -46,8 +46,44 @@ public struct Reducer<S, A> where S: Sendable, A: Equatable {
   /// - Parameters:
   ///   - state: State is the current app state..
   ///   - action: Action is the minimum operation that a reducer can perform.
-  @MainActor
   public init(reduce: @escaping (inout S, A) -> Void) {
     self.reduce = reduce
+  }
+}
+
+public extension Reducer {
+  static func logger(
+    _ reducer: Reducer<S, A>,
+    exclude: @escaping (A) -> Bool = { _ in false }
+  ) -> Reducer<S, A> where S: Sendable, A: Equatable {
+    Reducer { state, action in
+      reducer.reduce(&state, action)
+      
+      if !exclude(action) {
+        print("ℹ️ [[ Action ]]: \(action)")
+        print("---")
+      }
+    }
+  }
+  
+  static func reduce(
+    _ reducers: Reducer<S, A>...
+  ) -> Reducer<S, A> {
+    
+    Reducer { s, a in
+      for reducer in reducers {
+        reducer.reduce(&s, a)
+      }
+    }
+  }
+  
+  func lift<GS, GA>(
+    toState state: WritableKeyPath<GS, S>,
+    toAction action: WritableKeyPath<GA, A?>
+  ) -> Reducer<GS, GA> where GS: Sendable, GA: Equatable {
+    Reducer<GS, GA> { gs, ga in
+      guard let la = ga[keyPath: action] else { return }
+      self.reduce(&gs[keyPath: state], la)
+    }
   }
 }

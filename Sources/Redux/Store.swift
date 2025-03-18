@@ -5,114 +5,122 @@ import Combine
 import Foundation
 import SwiftUI
 
-/// Type that stores the state of the app or module allowing feeding actions.
-@dynamicMemberLookup public final class Store<S, A>: ObservableObject where S: Sendable, A: Equatable {
+
+final class Dispatcher<A> where A: Equatable {
+  private let queue = DispatchQueue(label: "com.dispatcher.queue")
+  private var actions: [A]
+  private var isRunning: Bool = false
   
-  @Published public private(set) var state: S {
-    didSet {
-      statePublisher.value = state
-    }
+  init(actions: [A]) {
+    self.actions = actions
   }
   
-  private nonisolated let statePublisher: CurrentValueSubject<S, Never>
+  func dispatch(_ action: A, completion: @escaping (A) -> Void) {
+    queue.sync { actions.insert(action, at: 0) }
+    run(completion: completion)
+  }
   
-  private let reducer: Reducer<S, A>
-  private let middlewares: Array<AnyMiddleware<S, A>>
-  private var dispatchedActions: Array<A> = []
-  private var isRunning: Bool = false
+  private func run(completion: (A) -> Void) {
+    guard !isRunning else { return }
+    defer { isRunning = false }
+
+    isRunning = true
+    while !actions.isEmpty {
+      var action: A?
+      
+      queue.sync { action = actions.popLast() }
+      if let action {
+        completion(action)
+      }
+    }
+  }
+}
+
+extension Dispatcher {
+  func dispatch(_ actions: [A], completion: @escaping (A) -> Void) {
+    queue.sync { self.actions.insert(contentsOf: actions, at: 0) }
+    run(completion: completion)
+  }
+}
+
+
+/// Type that stores the state of the app or module allowing feeding actions.
+@Observable @dynamicMemberLookup public final class Store<S, A> where S: Sendable, A: Equatable {
+  private(set) var state: S
+  
+  @ObservationIgnored private let reducers: [Reducer<S, A>]
+  @ObservationIgnored private let middlewares: [Middleware<S, A>]
+  @ObservationIgnored private let dispatcher: Dispatcher<A>
+  @ObservationIgnored private let queue = DispatchQueue(label: "com.store.queue")
+  
+  @ObservationIgnored private lazy var run: (A) -> Void = {
+    self.middlewares.reversed().reduce(
+        { action in self.reduce(action) },
+        { next, middleware in
+          { action in
+            middleware.run(
+              RunArguments(self.getState, self.dispatch, next, action)
+            )
+          }
+        }
+      )
+  }()
   
   public init(
     initialState state: S,
-    reducer: Reducer<S, A>,
-    middlewares: Array<AnyMiddleware<S, A>>
+    reducers: [Reducer<S, A>],
+    middlewares: [Middleware<S, A>] = []
   ) {
     self.state = state
-    self.reducer = reducer
+    self.reducers = reducers
     self.middlewares = middlewares
-    self.statePublisher = CurrentValueSubject<S, Never>(state)
+    self.dispatcher = Dispatcher(actions: [])
   }
   
-  /// A subscript providing access to the state of the store.
   public subscript<T>(dynamicMember keyPath: KeyPath<S, T>) -> T {
     state[keyPath: keyPath]
   }
   
-  public func dispatch(_ actions: A...) {
-    dispatch(actions)
-  }
-  
-  public func dispatch(_ actions: Array<A>) {
-    actions.forEach { dispatchedActions.insert($0, at: 0) }
-    if !isRunning {
-      runDispatcher()
-    }
-  }
-  
   public func dispatch(_ action: A) {
-    dispatchedActions.insert(action, at: 0)
-    if !isRunning {
-      runDispatcher()
-    }
-  }
-  
-  private func runDispatcher() {
-    if let action = dispatchedActions.popLast() {
-      isRunning = true
-      runMiddlewares(action) { action in
-        self.reduce(action)
-        self.runDispatcher()
-      }
-    } else {
-      isRunning = false
-    }
-  }
-  
-  private func runMiddlewares(_ action: A, reduce: @escaping (A) -> Void) {
-    let resolveMiddlewares = middlewares.reversed().reduce(
-      { action in
-        reduce(action)
-      }
-    ) { next, middleware in
-      { action in
-        middleware.run(
-          RunArguments(self.getState, self.dispatch, next, action)
-        )
-      }
-    }
-    
-    resolveMiddlewares(action)
-  }
-  
-  private func reduce(_ action: A) {
-    DispatchQueue.main.async { [weak self] in
-      guard let self else { return }
-      reducer.reduce(&state, action)
+    dispatcher.dispatch(action) { action in
+      self.run(action)
     }
   }
   
   private func getState() -> S {
-    statePublisher.value
+    queue.sync { self.state }
+  }
+  
+  private func reduce(_ action: A) {
+    queue.sync {
+      var newState = self.state
+      for reducer in reducers {
+        reducer.reduce(&newState, action)
+      }
+      
+      DispatchQueue.main.async { [weak self] in
+        self?.state = newState
+      }
+    }
   }
 }
 
 extension Store {
-  
-  @MainActor
-  public func bind<T>(_ keyPath: WritableKeyPath<S, T>) -> Binding<T> {
-    Binding {
-      self.state[keyPath: keyPath]
-    } set: { newValue in
-      self.state[keyPath: keyPath] = newValue
-    }
-  }
-  
-  @MainActor
-  public func reducedBind<T>(_ keyPath: KeyPath<S, T>, _ action: @escaping (T) -> A) -> Binding<T> {
-    Binding {
-      self.state[keyPath: keyPath]
-    } set: { [weak self] newValue in
-      self?.dispatch(action(newValue))
+  func dispatch(_ actions: A...) {
+    dispatcher.dispatch(actions) { action in
+      self.run(action)
     }
   }
 }
+
+extension Store where S: Sendable, A: Equatable {
+  public func bind<T>(_ keyPath: KeyPath<S, T>, _ action: @escaping (T) -> A) -> Binding<T> {
+    Binding {
+      self.state[keyPath: keyPath]
+    } set: { newValue in
+      self.dispatch(action(newValue))
+    }
+  }
+}
+
 
