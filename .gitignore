@@ -1,0 +1,10 @@
+xcuserdata/
+.package.resolved
+**/.DS_Store
+**/*.xcodeproj
+**/*.xcworkspace
+.mise.toml
+.build/
+.swiftpm/
+Derived/
+Package.resolved
