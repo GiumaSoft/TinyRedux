@@ -27,24 +27,28 @@ import SwiftUI
   }
   
   public subscript<T>(dynamicMember keyPath: KeyPath<LS, T>) -> T {
-    state[keyPath: keyPath]
+    self.state[keyPath: keyPath]
   }
   
   public var state: LS {
-    store.state[keyPath: toLocalState]
+    self.store.state[keyPath: toLocalState]
   }
   
   public nonisolated func dispatch(_ action: LA) {
-    store.dispatch(toGlobalAction(action))
+    self.store.dispatch(toGlobalAction(action))
   }
 }
 
 extension SubStore {
+  public func bind<T>(_ keyPath: KeyPath<LS, T>) -> Binding<T> {
+    store.bind(toLocalState.appending(path: keyPath) as! WritableKeyPath<GS, T>)
+  }
+  
   public func bind<T>(_ keyPath: KeyPath<LS, T>, _ action: @Sendable @escaping (T) -> LA) -> Binding<T> {
-    Binding {
-      self.state[keyPath: keyPath]
-    } set: { newValue in
-      self.dispatch(action(newValue))
+    store.bind(toLocalState.appending(path: keyPath)) {
+      self.toGlobalAction(action($0))
     }
   }
 }
+
+

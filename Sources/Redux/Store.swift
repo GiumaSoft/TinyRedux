@@ -1,9 +1,7 @@
 //
 
 
-import Combine
 import Foundation
-import Observation
 import SwiftUI
 
 
@@ -95,13 +93,19 @@ import SwiftUI
 }
 
 extension Store {
-  
-  @MainActor
-  public func bind<T>(_ keyPath: KeyPath<S, T>, _ action: @escaping (T) -> A) -> Binding<T> {
+  public func bind<T>(_ keyPath: WritableKeyPath<S, T>) -> Binding<T> {
     Binding {
       self.state[keyPath: keyPath]
-    } set: { [weak self] newValue in
-      self?.dispatch(action(newValue))
+    } set: { newValue in
+      self.state[keyPath: keyPath] = newValue
+    }
+  }
+  
+  public func bind<T>(_ keyPath: KeyPath<S, T>, _ action: @Sendable @escaping (T) -> A) -> Binding<T> {
+    Binding {
+      self.state[keyPath: keyPath]
+    } set: { newValue in
+      self.dispatch(action(newValue))
     }
   }
 }

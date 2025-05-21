@@ -14,7 +14,7 @@ public struct Reducer<S, A>: Sendable where S: Sendable, A: Sendable & Equatable
   ///
   ///
   @usableFromInline
-  let reduce: @Sendable (inout S, A) throws -> Void
+  let reduce: @MainActor @Sendable (inout S, A) throws -> Void
   ///
   ///
   /// Creates an instance of a Reducer that update the state if necessary based on action.
@@ -46,7 +46,7 @@ public struct Reducer<S, A>: Sendable where S: Sendable, A: Sendable & Equatable
   /// - Parameters:
   ///   - state: State is the current app state..
   ///   - action: Action is the minimum operation that a reducer can perform.
-  public init(reduce: @Sendable @escaping (inout S, A) throws -> Void) {
+  public init(reduce: @MainActor @Sendable @escaping (inout S, A) throws -> Void) {
     self.reduce = reduce
   }
   
