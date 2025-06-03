@@ -7,14 +7,14 @@ import SwiftUI
 
 /// SubStore
 ///
+///
 @MainActor
-@Observable
-@dynamicMemberLookup public final class SubStore<LS, LA, GS, GA> where LS: Sendable, GS: Sendable, LA: Sendable & Equatable, GA: Sendable & Equatable {
+@dynamicMemberLookup
+public final class SubStore<LS, LA, GS, GA> where LS : ReduxState, GS : ReduxState, LA : ReduxAction, GA : ReduxAction {
   
   private let store: Store<GS, GA>
-  
-  @ObservationIgnored private let toLocalState: WritableKeyPath<GS, LS> & Sendable
-  @ObservationIgnored private let toGlobalAction: @Sendable (LA) -> GA
+  private let toLocalState: WritableKeyPath<GS, LS> & Sendable
+  private let toGlobalAction: @Sendable (LA) -> GA
   
   public nonisolated init(
     initialStore store: Store<GS, GA>,
@@ -26,29 +26,56 @@ import SwiftUI
     self.toGlobalAction = toGlobalAction
   }
   
-  public subscript<T>(dynamicMember keyPath: KeyPath<LS, T>) -> T {
-    self.state[keyPath: keyPath]
+  
+  public subscript<T>(dynamicMember keyPath: KeyPath<LS.ReadOnly, T>) -> T {
+    self.state.readOnly[keyPath: keyPath]
   }
   
-  public var state: LS {
-    self.store.state[keyPath: toLocalState]
+  var state: LS {
+    get { self.store.state[keyPath: toLocalState] }
+    set { self.store.state[keyPath: toLocalState] = newValue }
   }
   
+  @Sendable
+  public nonisolated func dispatch(_ actions: LA...) {
+    let ga = actions.map { toGlobalAction($0) }
+    self.store.dispatch(ga)
+  }
+  
+  @Sendable
+  public nonisolated func dispatch(_ actions: [LA]) {
+    let ga = actions.map { toGlobalAction($0) }
+    self.store.dispatch(ga)
+  }
+  
+  @Sendable
   public nonisolated func dispatch(_ action: LA) {
     self.store.dispatch(toGlobalAction(action))
   }
 }
 
+
 extension SubStore {
-  public func bind<T>(_ keyPath: KeyPath<LS, T>) -> Binding<T> {
-    store.bind(toLocalState.appending(path: keyPath) as! WritableKeyPath<GS, T>)
+  /// Bind
+  ///
+  ///
+  @MainActor
+  public func bind<T>(_ keyPath: WritableKeyPath<LS, T>) -> Binding<T> {
+    Binding {
+      self.state[keyPath: keyPath]
+    } set: { newValue in
+      self.state[keyPath: keyPath] = newValue
+    }
   }
-  
-  public func bind<T>(_ keyPath: KeyPath<LS, T>, _ action: @Sendable @escaping (T) -> LA) -> Binding<T> {
-    store.bind(toLocalState.appending(path: keyPath)) {
-      self.toGlobalAction(action($0))
+  /// Bind
+  ///
+  ///
+  @MainActor
+  public func bind<T>(_ keyPath: KeyPath<LS, T>, _ action: @escaping (T) -> LA) -> Binding<T> {
+    Binding {
+      self.state[keyPath: keyPath]
+    } set: { newValue in
+      self.dispatch(action(newValue))
     }
   }
 }
-
-
