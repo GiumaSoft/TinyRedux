@@ -10,13 +10,15 @@ import SwiftUI
 ///
 ///
 @MainActor
+@Observable
+@dynamicMemberLookup
 public final class SubStore<LS, LA, GS, GA>: @unchecked Sendable where LS : ReduxS, GS : ReduxS, LA : ReduxA, GA : ReduxA {
   
   private let store: Store<GS, GA>
-  private let toLocalState: WritableKeyPath<GS, LS> & Sendable
-  private let toGlobalAction: @Sendable (LA) -> GA
-  
-  public nonisolated init(
+  @ObservationIgnored private let toLocalState: WritableKeyPath<GS, LS> & Sendable
+  @ObservationIgnored private let toGlobalAction: @Sendable (LA) -> GA
+
+  public init(
     initialStore store: Store<GS, GA>,
     toLocalState: WritableKeyPath<GS, LS> & Sendable,
     toGlobalAction: @escaping @Sendable (LA) -> GA
@@ -26,13 +28,13 @@ public final class SubStore<LS, LA, GS, GA>: @unchecked Sendable where LS : Redu
     self.toGlobalAction = toGlobalAction
   }
   
-  private var _state: LS {
-    get { store._state[keyPath: toLocalState] }
-    set { store._state[keyPath: toLocalState] = newValue }
+  public subscript<Value>(dynamicMember keyPath: KeyPath<LS.ReadOnly, Value>) -> Value {
+    state.readOnly[keyPath: keyPath]
   }
   
-  public var state: LS.ReadOnly {
-    self.store._state[keyPath: toLocalState].readOnly
+  var state: LS {
+    get { store.state[keyPath: toLocalState] }
+    set { store.state[keyPath: toLocalState] = newValue }
   }
   
   public func dispatch(_ actions: LA...) {
@@ -61,17 +63,17 @@ extension SubStore {
   ///
   public func bind<T>(_ keyPath: WritableKeyPath<LS, T>) -> Binding<T> {
     Binding {
-      self._state[keyPath: keyPath]
+      self.state[keyPath: keyPath]
     } set: { newValue in
-      self._state[keyPath: keyPath] = newValue
+      self.state[keyPath: keyPath] = newValue
     }
   }
   /// Bind
   ///
   ///
-  public func bind<T>(_ keyPath: KeyPath<LS, T>, queueLimit limit: Int = 0, _ action: @escaping (T) -> LA) -> Binding<T> {
+  public func bind<T>(_ keyPath: KeyPath<LS.ReadOnly, T>, queueLimit limit: Int = 0, _ action: @escaping (T) -> LA) -> Binding<T> {
     Binding {
-      self._state[keyPath: keyPath]
+      self.state.readOnly[keyPath: keyPath]
     } set: { newValue in
       self.dispatch(action(newValue), queueLimit: limit)
     }

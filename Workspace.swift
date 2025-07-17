@@ -1,5 +1,7 @@
+// swift-tools-version:6.0
+//
 // Workspace.swift
-import ProjectDescription
+@preconcurrency import ProjectDescription
 
 let workspace = Workspace(
     name: "Example",

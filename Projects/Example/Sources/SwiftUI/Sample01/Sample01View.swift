@@ -23,7 +23,7 @@ extension Sample.SwiftUI.Sample01View {
   
   @ViewBuilder private var _dates_: some View {
     List {
-      ForEach(store.state.dates, id: \.self) { date in
+      ForEach(store.dates, id: \.self) { date in
         let formattedDate = date.formatted(
           date: .abbreviated,
           time: .complete

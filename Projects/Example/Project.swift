@@ -1,4 +1,7 @@
-import ProjectDescription
+// swift-tools-version:6.0
+//
+// Project.swift
+@preconcurrency import ProjectDescription
 
 let exampleTarget = Target.target(
   name: "Example",

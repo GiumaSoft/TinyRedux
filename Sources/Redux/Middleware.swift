@@ -4,7 +4,7 @@
 /// Middleware
 ///
 ///
-public typealias RunArguments<S, A> = (state: S.ReadOnly, dispatch: @Sendable @MainActor (A, Int) -> Void, next: @Sendable @MainActor (A) throws -> Void, action: A) where S : ReduxS, A : ReduxA
+public typealias RunArguments<S, A> = (state: S.ReadOnly, dispatch: @MainActor (A, Int) -> Void, next: @MainActor (A) throws -> Void, action: A) where S : ReduxS, A : ReduxA
 
 
 public protocol AnyMiddleware: Sendable {

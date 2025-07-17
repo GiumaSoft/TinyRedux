@@ -30,13 +30,13 @@ extension Sample.SwiftUI.Sample02View {
   @ViewBuilder private var _counter_: some View {
     Button {
       // Start or stop timer
-      store.dispatch(store.state.timerIsRunning ? .stopAutoCounter : .startAutoCounter)
+      store.dispatch(store.timerIsRunning ? .stopAutoCounter : .startAutoCounter)
     } label: {
       Circle()
         .fill(.foreground)
         .overlay(
           // Display timeCount as timer format
-          Text(store.state.timeCount.timeFormatted)
+          Text(store.timeCount.timeFormatted)
             .font(
               .system(
                 size: 56,
