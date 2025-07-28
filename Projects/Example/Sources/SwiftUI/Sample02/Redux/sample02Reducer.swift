@@ -5,6 +5,7 @@ import Foundation
 import TinyRedux
 
 
+@MainActor
 let sample02Reducer = Reducer<AppState, Sample02Actions> { state, action in
   
   switch action {

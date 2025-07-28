@@ -5,6 +5,7 @@ import Foundation
 import TinyRedux
 
 
+@MainActor
 let sample01Reducer = Reducer<AppState, Sample01Actions> { state, action in
   print("Entering counterReducer")
   switch action {

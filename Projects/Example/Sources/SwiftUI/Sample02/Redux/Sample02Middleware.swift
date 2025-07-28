@@ -12,23 +12,24 @@ final class Sample02Coordinator {
   var cancellables: Set<AnyCancellable> = []
 }
 
-let sample02Middleware = StatedMiddleware<Sample02Coordinator, AppState, Sample02Actions>(coordinator: Sample02Coordinator()) { c, args in
-  let (_, dispatch, next, action) = args
+@MainActor
+let sample02Middleware = StatedMiddleware<Sample02Coordinator, AppState, Sample02Actions>(coordinator: Sample02Coordinator()) { coordinator, context in
+  let (_, dispatch, asyncDispatch, next, asyncNext, action) = context.args
   
   switch action {
   case .startAutoCounter:
-    if c.cancellables.isEmpty {
+    if coordinator.cancellables.isEmpty {
       Timer.publish(every: 1.0, on: .main, in: .common)
         .autoconnect()
         .sink { _ in
-          dispatch(.increase, 0)
+          dispatch(.increase)
         }
-        .store(in: &c.cancellables)
+        .store(in: &coordinator.cancellables)
     }
     
     break
   case .stopAutoCounter:
-    c.cancellables.removeAll()
+    coordinator.cancellables.removeAll()
     
     break
   default:

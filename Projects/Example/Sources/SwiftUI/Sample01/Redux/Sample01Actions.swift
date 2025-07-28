@@ -5,7 +5,7 @@ import Foundation
 import TinyRedux
 
 
-enum Sample01Actions: ReduxA {
+enum Sample01Actions: ReduxAction {
   case insertDate
   case removeDate
 }

@@ -5,6 +5,7 @@ import Foundation
 import TinyRedux
 
 
+@MainActor
 extension GlobalValues {
   var mainStore: Store<AppState, AppActions> { GlobalValues.mainStore }
   var sample01Store: SubStore<AppState, Sample01Actions, AppState, AppActions> { GlobalValues.sample01Store }
@@ -12,9 +13,13 @@ extension GlobalValues {
   var sample03Store: SubStore<AppState, Sample03Actions, AppState, AppActions> { GlobalValues.sample03Store }
 }
 
+@MainActor
 extension GlobalValues {
   static let mainStore = Store<AppState, AppActions>(
     initialState: AppState(),
+    middlewares: [
+      Middleware(sample02Middleware, toState: \.self, toAction: \.sample02, toGlobalAction: { .sample02($0) })
+    ],
     reducers: [
       .logger(
         .reduce(
@@ -23,9 +28,6 @@ extension GlobalValues {
           Reducer(sample03Reducer, toState: \.self, toAction: \.sample03)
         )
       )
-    ],
-    middlewares: [
-      Middleware(sample02Middleware, toState: \.self, toAction: \.sample02, toGlobalAction: { .sample02($0) })
     ]
   )
   

@@ -7,7 +7,8 @@ import TinyRedux
 
 
 @Observable
-final class AppState: ReduxS, @unchecked Sendable {
+@MainActor
+final class AppState: ReduxState {
   var dates: Array<Date>
   var header: String
   var message: String
@@ -59,6 +60,7 @@ final class AppState: ReduxS, @unchecked Sendable {
   }
 }
 
+@MainActor
 protocol ReadOnlyAppState: Sendable {
   var dates: Array<Date> { get }
   var header: String { get }

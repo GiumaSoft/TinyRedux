@@ -4,28 +4,67 @@
 /// Middleware
 ///
 ///
-public typealias RunArguments<S, A> = (state: S.ReadOnly, dispatch: @MainActor (A, Int) -> Void, next: @MainActor (A) throws -> Void, action: A) where S : ReduxS, A : ReduxA
 
-
-public protocol AnyMiddleware: Sendable {
-  associatedtype S: ReduxS
-  associatedtype A: ReduxA
+/// Contesto passato al middleware per l'esecuzione
+@frozen public struct MiddlewareContext<S, A> where S : ReduxState, A : ReduxAction {
+  /// Stato corrente (read-only)
+  public let state: S.ReadOnly
+  /// Funzione per dispatch di nuove azioni
+  public let dispatch: @MainActor (A) -> Void
+  /// Funzione per continuare la catena di middleware
+  public let next: @MainActor (A) throws -> Void
+  /// Azione corrente
+  public let action: A
   
-  @MainActor
-  func run(_ args: RunArguments<S, A>) throws
+  public init(
+    state: S.ReadOnly,
+    dispatch: @escaping @MainActor (A) -> Void,
+    next: @escaping @MainActor (A) throws  -> Void,
+    action: A
+  ) {
+    self.state = state
+    self.dispatch = dispatch
+    self.next = next
+    self.action = action
+  }
+  
+  public var args: (S.ReadOnly, @MainActor (A) -> Void, @Sendable (A) async -> Void, @MainActor (A) throws -> Void, @Sendable (A) async throws -> Void, A) {
+    (
+      self.state,
+      self.dispatch,
+      { action in
+        await MainActor.run { self.dispatch(action) }
+      },
+      self.next,
+      { action in
+        try await MainActor.run { try self.next(action) }
+      },
+      self.action
+    )
+  }
 }
 
 
-@frozen public struct Middleware<S, A>: Sendable where S : ReduxS, A : ReduxA {
+public protocol AnyMiddleware {
+  associatedtype S: ReduxState
+  associatedtype A: ReduxAction
   
-  private let handler: @Sendable @MainActor (RunArguments<S, A>) throws -> Void
+  @MainActor
+  func run(_ context: MiddlewareContext<S, A>) throws
+}
+
+
+
+/// Middleware concreto con closure
+@frozen public struct Middleware<S, A>: AnyMiddleware where S : ReduxState, A : ReduxAction {
+  private let handler: @MainActor (MiddlewareContext<S, A>) throws -> Void
   
-  public init(handler: @escaping @Sendable @MainActor (RunArguments<S, A>) throws -> Void) {
+  public init(_ handler: @escaping @MainActor (MiddlewareContext<S, A>) throws -> Void) {
     self.handler = handler
   }
   
-  public init<M>(_ middleware: M) where M: AnyMiddleware, M.S == S, M.A == A {
-    self.handler = { args in try middleware.run(args) }
+  public init<M>(_ middleware: M) where M : AnyMiddleware, M.S == S, M.A == A {
+    self.handler = { context in try middleware.run(context) }
   }
   
   public init<M, LS, LA>(
@@ -33,57 +72,47 @@ public protocol AnyMiddleware: Sendable {
     toState state: KeyPath<S.ReadOnly, LS.ReadOnly> & Sendable,
     toAction action: KeyPath<A, LA?> & Sendable,
     toGlobalAction tGA: @escaping @Sendable (LA) -> A
-  ) where M: AnyMiddleware,  M.S == LS, M.A == LA {
-    self.handler = { args in
-      let (gs, gd, gn, ga) = args
-      
-      if let la = ga[keyPath: action] {
-        try middleware.run(
-          RunArguments<LS, LA>(
-            gs[keyPath: state],
-            { la, limit in gd(tGA(la), limit) },
-            { la in try gn(tGA(la)) },
-            la
-          )
-        )
-      } else {
-        try gn(ga)
+  ) where M : AnyMiddleware, M.S == LS, M.A == LA {
+    self.init { context in
+      guard let localAction = context.action[keyPath: action] else {
+        try context.next(context.action)
+        return
       }
+      
+      try middleware.run(
+        MiddlewareContext(
+          state: context.state[keyPath: state],
+          dispatch: { localAction in context.dispatch(tGA(localAction)) },
+          next: { localAction in try context.next(tGA(localAction)) },
+          action: localAction
+        )
+      )
     }
   }
   
   @MainActor
-  public func run(_ args: RunArguments<S, A>) throws {
-    try self.handler(args)
+  public func run(_ context: MiddlewareContext<S, A>) throws {
+    try handler(context)
   }
 }
 
 
-@frozen public struct StatelessMiddleware<S, A>: AnyMiddleware where S : ReduxS, A : ReduxA {
-  
-  private let handler: @Sendable @MainActor  (RunArguments<S, A>) throws -> Void
-  
-  public init(handler: @escaping @Sendable @MainActor  (RunArguments<S, A>) throws -> Void) {
-    self.handler = handler
-  }
-  
-  public func run(_ args: RunArguments<S, A>) throws {
-    try self.handler(args)
-  }
-}
-
-
-@frozen public struct StatedMiddleware<T, S, A>: AnyMiddleware where T : Sendable, S : ReduxS, A : ReduxA  {
-  
-  private let handler: @Sendable @MainActor  (T, RunArguments<S, A>) throws -> Void
+/// Middleware con stato interno
+@frozen
+public struct StatedMiddleware<T: Sendable, S: ReduxState, A: ReduxAction>: AnyMiddleware {
+  private let handler: @MainActor (T, MiddlewareContext<S, A>) throws -> Void
   private let coordinator: T
   
-  public init(coordinator: T, handler: @escaping @Sendable @MainActor  (T, RunArguments<S, A>) throws -> Void) {
+  public init(
+    coordinator: T,
+    handler: @escaping @MainActor (T, MiddlewareContext<S, A>) throws -> Void
+  ) {
     self.coordinator = coordinator
     self.handler = handler
   }
   
-  public func run(_ args: RunArguments<S, A>) throws {
-    try self.handler(coordinator, args)
+  @MainActor
+  public func run(_ context: MiddlewareContext<S, A>) throws {
+    try handler(coordinator, context)
   }
 }

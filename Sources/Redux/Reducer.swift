@@ -11,11 +11,11 @@ import Observation
 /// - They should only calculate the new state value based on the state and action arguments.
 /// - They are  allowed to modify the existing state in a way that preserve that global state integrity, since they are the only function that is allowed to do that in a synchronous way you don't risk any data race even if you are dispatching actions from different threads in an asynchronous way..
 /// - They must not do any asynchronous logic or cause other "side effects", they are not allowed to dispatch new actions
-@frozen public struct Reducer<S, A>: Sendable where S : ReduxS, A : ReduxA {
+@frozen public struct Reducer<S, A> where S : ReduxState, A : ReduxAction {
   ///
   ///
   @usableFromInline
-  let reduce: @Sendable @MainActor (inout S, A) throws -> Void
+  let reduce: @MainActor (inout S, A) throws -> Void
   ///
   ///
   /// Creates an instance of a Reducer that update the state if necessary based on action.
@@ -47,7 +47,7 @@ import Observation
   /// - Parameters:
   ///   - state: State is the current app state..
   ///   - action: Action is the minimum operation that a reducer can perform.
-  public init(handler: @escaping @Sendable @MainActor (inout S, A) throws -> Void) {
+  public init(handler: @escaping @MainActor (inout S, A) throws -> Void) {
     self.reduce = handler
   }
   ///

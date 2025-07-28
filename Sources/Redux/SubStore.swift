@@ -12,7 +12,7 @@ import SwiftUI
 @MainActor
 @Observable
 @dynamicMemberLookup
-public final class SubStore<LS, LA, GS, GA>: @unchecked Sendable where LS : ReduxS, GS : ReduxS, LA : ReduxA, GA : ReduxA {
+public final class SubStore<LS, LA, GS, GA> where LS : ReduxState, GS : ReduxState, LA : ReduxAction, GA : ReduxAction {
   
   private let store: Store<GS, GA>
   @ObservationIgnored private let toLocalState: WritableKeyPath<GS, LS> & Sendable

@@ -5,7 +5,7 @@ import Foundation
 import TinyRedux
 
 
-enum Sample02Actions: ReduxA {
+enum Sample02Actions: ReduxAction {
   case increase
   case decrease
   case startAutoCounter

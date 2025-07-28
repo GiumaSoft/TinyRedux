@@ -5,7 +5,7 @@ import Foundation
 import TinyRedux
 
 
-enum Sample03Actions: ReduxA {
+enum Sample03Actions: ReduxAction {
   case setHeader(String)
   case setMessage(String)
 }
