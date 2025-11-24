@@ -44,6 +44,8 @@ public final class Store<S, A> where S : ReduxState, A : ReduxAction {
   @ObservationIgnored
   private let onException: (any Error) -> Void
   @ObservationIgnored
+  private let onLog: (String) -> Void
+  @ObservationIgnored
   private var pendingActions: FIFOQueue<A>
   @ObservationIgnored
   private var pendingActionsCount: [A: UInt]
@@ -56,14 +58,16 @@ public final class Store<S, A> where S : ReduxState, A : ReduxAction {
     initialState state: S,
     middlewares: [Middleware<S, A>],
     reducers: [Reducer<S, A>],
-    onException: @escaping (any Error) -> Void = { _ in }
+    onException: @escaping (any Error) -> Void = { _ in },
+    onLog: @escaping (String) -> Void = { _ in }
   ) -> Store<S, A> {
     Singleton.getInstance {
       Store<S, A>(
         initialState: state,
         middlewares: middlewares,
         reducers: reducers,
-        onException: onException
+        onException: onException,
+        onLog: onLog
       )
     }
   }
@@ -72,12 +76,14 @@ public final class Store<S, A> where S : ReduxState, A : ReduxAction {
     initialState state: S,
     middlewares: [Middleware<S, A>],
     reducers: [Reducer<S, A>],
-    onException: @escaping (any Error) -> Void = { _ in }
+    onException: @escaping (any Error) -> Void = { _ in },
+    onLog:  @escaping (String) -> Void = { _ in }
   ) {
     self.state = state
     self.reducers = reducers
     self.middlewares = middlewares
     self.onException = onException
+    self.onLog = onLog
     self.pendingActions = FIFOQueue()
     self.pendingActionsCount = [:]
     self.isProcessRunning = false
@@ -104,7 +110,7 @@ extension Store {
   
   private func enqueue(_ actions: [A], queueLimit limit: UInt) {
     for action in actions {
-      printLog("ℹ️ [[ Store ]]: dispatch [.\(action)] action.")
+      onLog("ℹ️ [[ Store ]]: dispatch [.\(action)] action.")
       
       if limit > 0 {
         let count = pendingActionsCount[action, default: 0]
@@ -115,7 +121,7 @@ extension Store {
       pendingActionsCount[action, default: 0] += 1
     }
     
-    printLog("ℹ️ [[ Store ]]: actions in queue: [\(pendingActionsDescription)].")
+    onLog("ℹ️ [[ Store ]]: actions in queue: [\(pendingActionsDescription)].")
 
     if !isProcessRunning {
       runDispatcher()
@@ -125,7 +131,7 @@ extension Store {
   private func runDispatcher() {
     if isProcessRunning { return }
     
-    printLog("ℹ️ [[ Store ]]: run dispatcher.")
+    onLog("ℹ️ [[ Store ]]: run dispatcher.")
     
     isProcessRunning = true
     while let action = pendingActions.dequeue() {
@@ -138,7 +144,7 @@ extension Store {
     }
     isProcessRunning = false
     
-    printLog("ℹ️ [[ Store ]]: dispatcher teminated.")
+    onLog("ℹ️ [[ Store ]]: dispatcher teminated.")
   }
   
   private func buildProcess() -> (A) throws -> Void {
@@ -149,7 +155,7 @@ extension Store {
             ReducerContext(
               action: action,
               handled: {
-                printLog("ℹ️ [[ \(reducer.id) ]] handle [\(action.debugDescription)] action.")
+                self.onLog("ℹ️ [[ \(reducer.id) ]] handle [\(action.debugDescription)] action.")
               }
             )
           )
@@ -166,7 +172,7 @@ extension Store {
               next: next,
               action: action,
               handled: {
-                printLog("ℹ️ [[ \(middleware.id) ]] handle [\(action.debugDescription)] action.")
+                self.onLog("ℹ️ [[ \(middleware.id) ]] handle [\(action.debugDescription)] action.")
               }
             )
           )
