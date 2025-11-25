@@ -35,8 +35,8 @@ public protocol ReduxAction: CustomDebugStringConvertible,
 @dynamicMemberLookup
 public final class Store<S, A> where S : ReduxState, A : ReduxAction {
   
+  @ObservationIgnored
   internal var state: S
-  
   @ObservationIgnored
   private let reducers: [Reducer<S, A>]
   @ObservationIgnored
