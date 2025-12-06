@@ -4,16 +4,16 @@
 import Foundation
 
 
-enum Singleton {
-  
+enum Singleton  {
+  @MainActor
   @inline(__always)
   static func getInstance<T>(build builder: () throws -> T) rethrows -> T {
     try Container.main.getInstance(build: builder)
   }
 }
 
-@MainActor
-extension Singleton {
+
+private extension Singleton {
   final class Container {
     private struct Wrapped<Value> { let value: Value }
     private var instances = [ObjectIdentifier: Any]()
