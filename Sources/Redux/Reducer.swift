@@ -21,9 +21,9 @@ public struct Reducer<S, A> where S : ReduxState, A : ReduxAction {
   public let id: String
   ///
   @usableFromInline
-  let reduce: @MainActor (inout S, ReducerContext<A>) throws -> Void
+  let reduce: @MainActor (S, ReducerContext<A>) throws -> Void
 
-  public init(id: String, handler: @escaping @MainActor (inout S, ReducerContext<A>) throws -> Void) {
+  public init(id: String, handler: @escaping @MainActor (S, ReducerContext<A>) throws -> Void) {
     self.id = id
     self.reduce = handler
   }

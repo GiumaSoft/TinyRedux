@@ -5,16 +5,27 @@ import Observation
 import SwiftUI
 
 
+
+@MainActor
+public protocol ReadOnlyState: AnyObject, Sendable {
+  ///
+  associatedtype State: ReduxState
+  ///
+  init(_ state: State)
+}
+
+
 /// ReduxState
 ///
 ///
 @MainActor
-public protocol ReduxState: Observable, Sendable {
+public protocol ReduxState: AnyObject, Observable, Sendable {
   /// Define protocol that conform to a read-only accessible state.
-  associatedtype ReadOnly: Sendable
+  associatedtype ReadOnly: ReadOnlyState where ReadOnly.State == Self
   /// Property that make state accessible in read-only mode.
   var readOnly: ReadOnly { get }
 }
+
 
 
 /// ReduxAction
@@ -46,8 +57,8 @@ public final class Store<S, A> where S : ReduxState, A : ReduxAction {
   private let onLog: (String) -> Void
   ///
   private var actionBuffer: Deque<A>
-  /// Container that store counter for same action in current buffer,
-  /// used by equeue
+  /// Container that stores counters for same actions currently buffered (and in-flight),
+  /// used by `enqueue`.
   private var bufferedActionCount: [A: UInt]
   ///
   private var isProcessRunning: Bool
@@ -141,7 +152,7 @@ extension Store {
     isProcessRunning = true
     while let action = actionBuffer.popFirst() {
       onLog("ℹ️ [[ Store ]]: actions in queue: [\(pendingActionsDescription)].")
-      decrementCount(for: action)
+      defer { decrementCount(for: action) }
       do {
         try processCache(action)
       } catch {
@@ -150,18 +161,21 @@ extension Store {
     }
     isProcessRunning = false
     
-    onLog("ℹ️ [[ Store ]]: dispatcher teminated.")
+    onLog("ℹ️ [[ Store ]]: dispatcher terminated.")
   }
   
   private func buildProcess() -> (A) throws -> Void {
-    middlewares.reversed().reduce(
-      { [unowned self] action in
-        var nextState = self.state
-        for reducer in reducers {
+    let storeDeallocationFailureReason = "Store<\(String(describing: S.self)),\(String(describing: A.self))> was deallocated while processing an action. Store is expected to exists for the entire App lifecycle."
+    
+    return middlewares.reversed().reduce(
+      { [weak self] action in
+        guard let self else { fatalError(storeDeallocationFailureReason) }
+        
+        let currentState = self.state
+        for reducer in self.reducers {
           try reducer.reduce(
-            &nextState,
-            ReducerContext(
-              action: action,
+            currentState,
+            ReducerContext(action: action,
               handled: {
                 self.onLog("ℹ️ [[ \(reducer.id) ]] handle [\(action.debugDescription)] action.")
               }
@@ -169,12 +183,17 @@ extension Store {
           )
         }
       },
-      { [unowned self] next, middleware in
-        { [unowned self] action in
+      { [weak self] next, middleware in
+        { [weak self] action in
+          guard let self else {
+            fatalError(storeDeallocationFailureReason)
+          }
+          
           try middleware.run(
             MiddlewareContext(
               state: self.state.readOnly,
-              dispatch: { [unowned self] (limit, actions) in
+              dispatch: { [weak self] (limit, actions) in
+                guard let self else { fatalError(storeDeallocationFailureReason) }
                 self.dispatch(queueLimit: limit, actions)
               },
               next: next,
