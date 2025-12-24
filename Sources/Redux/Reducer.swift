@@ -2,29 +2,26 @@
 
 import Foundation
 
+public typealias ReducerContext<S, A> = (
+  state: S,
+  action: A,
+  complete: () -> Void
+) where S : ReduxState, A : ReduxAction
 
 @frozen
-public struct ReducerContext<A> where A : ReduxAction {
-  public let action: A
-  public let handled: () -> Void
-  
-  public init(action: A, handled: @escaping () -> Void) {
-    self.action = action
-    self.handled = handled
-  }
-}
-
-
-@frozen
-public struct Reducer<S, A> where S : ReduxState, A : ReduxAction {
-  ///
+/// A reducer that mutates state in response to actions.
+public struct Reducer<S: ReduxState, A: ReduxAction> {
+  /// A stable identifier for logging and metrics.
   public let id: String
-  ///
-  @usableFromInline
-  let reduce: @MainActor (S, ReducerContext<A>) throws -> Void
-
-  public init(id: String, handler: @escaping @MainActor (S, ReducerContext<A>) throws -> Void) {
+  
+  internal let reduce: @MainActor @Sendable (ReducerContext<S, A>) -> Void
+  
+  /// Creates a reducer with the given identifier and body.
+  /// - Parameters:
+  ///   - id: Identifier for logging and metrics.
+  ///   - reduce: The reducer body that mutates state.
+  public init(id: String, _ reduce: @escaping @MainActor @Sendable (ReducerContext<S, A>) -> Void) {
     self.id = id
-    self.reduce = handler
+    self.reduce = reduce
   }
 }

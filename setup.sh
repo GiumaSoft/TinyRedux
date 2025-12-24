@@ -63,7 +63,7 @@ fi
 info "Checking for existing Xcode workspaces and projects..."
 
 workspace_count=$(find . -maxdepth 1 -name "*.xcworkspace" | wc -l | tr -d ' ')
-project_count=$(find ./Projects/ -name "*.xcodeproj" | wc -l | tr -d ' ')
+project_count=$(find ./ -name "*.xcodeproj" | wc -l | tr -d ' ')
 
 if [[ "$workspace_count" -gt 0 ]]; then
   info "Found $workspace_count workspace(s) — removing..."
@@ -75,7 +75,7 @@ fi
 
 if [[ "$project_count" -gt 0 ]]; then
   info "Found $project_count project(s) — removing..."
-  find ./Projects/ -name "*.xcodeproj" -print -delete
+  find ./ -name "*.xcodeproj" -print -delete
   success "Projects removed"
 else
   warn "No .xcodeproj found, skipping"

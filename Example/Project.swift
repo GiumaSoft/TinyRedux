@@ -7,7 +7,7 @@ let exampleTarget = Target.target(
   name: "Example",
   destinations: .iOS,
   product: .app,
-  bundleId: "com.GiumaSoft.TinyRedux.Example",
+  bundleId: "com.gmsoft.TinyRedux.Example",
   infoPlist: .extendingDefault(
     with: [
       "UILaunchStoryboardName": "LaunchScreen.storyboard"
@@ -27,7 +27,7 @@ let exampleTestsTarget = Target.target(
   name: "ExampleTests",
   destinations: .iOS,
   product: .unitTests,
-  bundleId: "com.GiumaSoft.TinyRedux.ExampleTests",
+  bundleId: "com.gmsoft.TinyRedux.ExampleTests",
   infoPlist: .default,
   sources: [
     "Tests/**"
@@ -49,7 +49,7 @@ let project: Project = {
   return Project(
     name: "Example",
     packages: [
-      .package(path: "../../")
+      .package(path: "../")
     ],
     settings: settings,
     targets: [
