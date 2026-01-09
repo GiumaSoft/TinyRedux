@@ -1,0 +1,80 @@
+//
+
+
+import Foundation
+
+
+/// MiddlewareContext
+///
+/// What a ``Middleware`` receives for one action: the live `state`, a `dispatch` to
+/// publish NEW actions, the `action` being intercepted, and the subscription registry
+/// hooks (`subscribe`/`unsubscribe`, State→Action).
+///
+/// Like ``ReduxReducerContext`` it carries the live `state`, but a middleware only READS
+/// it (the reducer is the sole writer); it influences state only via dispatch/subscriptions.
+/// The module lift projects the local state from `state` via ``ReduxModuleMap/toState``.
+public struct MiddlewareContext<S, A>: Sendable
+where S: ReduxState, A: ReduxAction
+{
+  /// The live state — read-only by convention (do NOT mutate from a middleware).
+  public let state: S
+
+  /// Publishes one or more actions for asynchronous processing. Thread-safe.
+  public let dispatch: @Sendable (A) -> Void
+
+  /// The action being intercepted.
+  public let action: A
+
+  /// Registers a subscription (id, origin, predicate, handler). Provided by the worker.
+  let register: RegisterSubscription<S, A>
+
+  /// Removes a subscription by id. Provided by the worker.
+  let unregister: UnregisterSubscription
+
+  init(_ state: S,
+       dispatch: @escaping @Sendable (A) -> Void,
+       action: A,
+       register: @escaping RegisterSubscription<S, A>,
+       unregister: @escaping UnregisterSubscription)
+  {
+    self.state = state
+    self.dispatch = dispatch
+    self.action = action
+    self.register = register
+    self.unregister = unregister
+  }
+}
+
+
+public extension MiddlewareContext
+{
+  /// Registers a State→Action subscription: when `condition(state)` turns true, the
+  /// worker dispatches `action(state)`. Returns the id (for `unsubscribe`).
+  @MainActor
+  @discardableResult
+  func subscribe(id: String = UUID().uuidString,
+                 when condition: @escaping SubscriptionPredicate<S>,
+                 then action: @escaping SubscriptionHandler<S, A>) -> String
+  {
+    register(id, self.action, condition, action)
+    return id
+  }
+
+  /// Convenience: the reaction ignores the state and yields a fixed action.
+  @MainActor
+  @discardableResult
+  func subscribe(id: String = UUID().uuidString,
+                 when condition: @escaping SubscriptionPredicate<S>,
+                 then action: @escaping @MainActor @Sendable () -> A) -> String
+  {
+    register(id, self.action, condition) { _ in action() }
+    return id
+  }
+
+  /// Removes a previously-registered subscription by id.
+  @MainActor
+  func unsubscribe(id: String)
+  {
+    unregister(id)
+  }
+}

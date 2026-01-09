@@ -1,0 +1,19 @@
+# Xcode
+
+**/build/
+**/.build/
+**/.package.resolved
+**/.swiftpm/
+**/*.xcodeproj/
+**/*.xcworkspace/
+**/Derived/
+
+.agents/
+.claude/
+.codex/
+
+.DS_Store
+.mise.toml
+AGENTS.md
+CLAUDE.md
+Package.resolved
