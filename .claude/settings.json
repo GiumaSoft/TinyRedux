@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch",
+      "Bash",
+      "Edit",
+      "Write",
+      "WebSearch",
+      "mcp__ide__*",
+      "mcp__xcode__*"
+    ]
+  }
+}
