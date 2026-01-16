@@ -38,39 +38,25 @@ enum TestAction: Int, ReduxAction {
 
 @MainActor
 final class TinyReduxTests: XCTestCase {
-    func testReduxErrorDescriptionUsesTypeNames() {
-        let error = ReduxError.storeDeallocated(TestState.self, TestAction.self)
-        let stateName = String(describing: TestState.self)
-        let actionName = String(describing: TestAction.self)
-        let expected = "Store<\(stateName), \(actionName)> was deallocated while processing an action."
-
-        XCTAssertEqual(error.description, expected)
-    }
-
-    func testReduxErrorStoreDeallocatedCarriesTypes() {
-        let error = ReduxError.storeDeallocated(TestState.self, TestAction.self)
-
-        guard case let .storeDeallocated(state, action) = error else {
-            return XCTFail("Expected storeDeallocated error.")
-        }
-
-        XCTAssertEqual(ObjectIdentifier(state), ObjectIdentifier(TestState.self))
-        XCTAssertEqual(ObjectIdentifier(action), ObjectIdentifier(TestAction.self))
-    }
 
     func testReducersRunInProvidedOrder() {
         let state = TestState()
         let reducerA = Reducer<TestState, TestAction>(id: "r1") { context in
-            context.state.log.append("r1")
+            let (state, _) = context.args
+            state.log.append("r1")
         }
         let reducerB = Reducer<TestState, TestAction>(id: "r2") { context in
-            context.state.log.append("r2")
+            let (state, _) = context.args
+            state.log.append("r2")
         }
-        let store = Store(
+        let store = Store.sharedInstance(
+            override: true,
             initialState: state,
             middlewares: [],
-            reducers: [reducerA, reducerB],
-            onException: { _ in XCTFail("Unexpected error in reducer order test.") }
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in reducer order test: \(context.error)")
+            }],
+            reducers: [reducerA, reducerB]
         )
 
         store.dispatch(.run)
@@ -82,23 +68,28 @@ final class TinyReduxTests: XCTestCase {
         let state = TestState()
         var calls: [String] = []
         let middlewareA = Middleware<TestState, TestAction>(id: "m1") { context in
+            let (_, _, next, action) = context.args
             calls.append("m1.before")
-            try context.next(context.action)
+            try next(action)
             calls.append("m1.after")
         }
         let middlewareB = Middleware<TestState, TestAction>(id: "m2") { context in
+            let (_, _, next, action) = context.args
             calls.append("m2.before")
-            try context.next(context.action)
+            try next(action)
             calls.append("m2.after")
         }
         let reducer = Reducer<TestState, TestAction>(id: "r") { _ in
             calls.append("reducer")
         }
-        let store = Store(
+        let store = Store.sharedInstance(
+            override: true,
             initialState: state,
             middlewares: [middlewareA, middlewareB],
-            reducers: [reducer],
-            onException: { _ in XCTFail("Unexpected error in middleware order test.") }
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in middleware order test: \(context.error)")
+            }],
+            reducers: [reducer]
         )
 
         store.dispatch(.run)
@@ -109,13 +100,17 @@ final class TinyReduxTests: XCTestCase {
     func testMaxDispatchableDropsDuplicateBufferedActions() {
         let state = TestState()
         let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
-            context.state.value += 1
+            let (state, _) = context.args
+            state.value += 1
         }
-        let store = Store(
+        let store = Store.sharedInstance(
+            override: true,
             initialState: state,
             middlewares: [],
-            reducers: [reducer],
-            onException: { _ in XCTFail("Unexpected error in maxDispatchable test.") }
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in maxDispatchable test: \(context.error)")
+            }],
+            reducers: [reducer]
         )
         let action = TestAction.inc
 
@@ -124,88 +119,52 @@ final class TinyReduxTests: XCTestCase {
         XCTAssertEqual(state.value, 1)
     }
 
-    func testStoreDeallocatesAfterDispatch() {
+    func testSharedInstanceReturnsSameStore() {
         let state = TestState()
         let reducer = Reducer<TestState, TestAction>(id: "noop") { _ in }
-        weak var weakStore: Store<TestState, TestAction>?
-        do {
-            let store = Store(
-                initialState: state,
-                middlewares: [],
-                reducers: [reducer],
-                onException: { _ in XCTFail("Unexpected error in deallocation test.") }
-            )
-            weakStore = store
-            store.dispatch(.run)
-        }
+        let storeA = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [],
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in shared instance test: \(context.error)")
+            }],
+            reducers: [reducer]
+        )
+        let storeB = Store.sharedInstance(
+            initialState: state,
+            middlewares: [],
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in shared instance test: \(context.error)")
+            }],
+            reducers: [reducer]
+        )
 
-        XCTAssertNil(weakStore)
+        XCTAssertTrue(storeA === storeB)
     }
 
-    func testStoreDeallocatesAfterManyActions() {
+    func testSharedInstanceOverridesWhenRequested() {
         let state = TestState()
-        let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
-            context.state.value += 1
-        }
-        let totalActions = 1000
-        weak var weakStore: Store<TestState, TestAction>?
-        do {
-            let store = Store(
-                initialState: state,
-                middlewares: [],
-                reducers: [reducer],
-                onException: { _ in XCTFail("Unexpected error in mass dispatch test.") }
-            )
-            weakStore = store
+        let reducer = Reducer<TestState, TestAction>(id: "noop") { _ in }
+        let storeA = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [],
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in shared instance override test: \(context.error)")
+            }],
+            reducers: [reducer]
+        )
+        let storeB = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [],
+            resolvers: [Resolver(id: "resolver") { context in
+                XCTFail("Unexpected error in shared instance override test: \(context.error)")
+            }],
+            reducers: [reducer]
+        )
 
-            for _ in 0..<totalActions {
-                store.dispatch(.inc)
-            }
-        }
-
-        XCTAssertEqual(state.value, totalActions)
-
-        XCTAssertNil(weakStore)
-    }
-
-    func testStoreDeallocatesAfterManyAsyncActions() async {
-        let state = TestState()
-        let totalActions = 200
-        let expectation = expectation(description: "Async actions complete")
-        expectation.expectedFulfillmentCount = totalActions
-        let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
-            guard context.action == .inc else { return }
-            context.state.value += 1
-            expectation.fulfill()
-        }
-        let middleware = Middleware<TestState, TestAction>(id: "async") { context in
-            if context.action == .run {
-                Task { @MainActor in
-                    await Task.yield()
-                    context.dispatch(0, .inc)
-                }
-            }
-            try context.next(context.action)
-        }
-        weak var weakStore: Store<TestState, TestAction>?
-        do {
-            let store = Store(
-                initialState: state,
-                middlewares: [middleware],
-                reducers: [reducer],
-                onException: { _ in XCTFail("Unexpected error in async mass dispatch test.") }
-            )
-            weakStore = store
-
-            for _ in 0..<totalActions {
-                store.dispatch(.run)
-            }
-
-            await fulfillment(of: [expectation], timeout: 2.0)
-
-            XCTAssertEqual(state.value, totalActions)
-        }
-
-        XCTAssertNil(weakStore)
+        XCTAssertFalse(storeA === storeB)
     }
 }

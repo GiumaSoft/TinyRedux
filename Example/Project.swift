@@ -41,7 +41,8 @@ let exampleTestsTarget = Target.target(
 let project: Project = {
   let settings = Settings.settings(
     base: [
-      "SWIFT_VERSION": "6"
+      "SWIFT_VERSION": "6",
+      "SWIFT_STRICT_CONCURRENCY": "complete"
     ],
     defaultSettings: .recommended
   )

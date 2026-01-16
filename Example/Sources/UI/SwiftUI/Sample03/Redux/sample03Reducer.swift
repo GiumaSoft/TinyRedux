@@ -8,7 +8,7 @@ import TinyRedux
 @MainActor
 let sample03Reducer = Reducer<AppState, AppActions>(id: "sample03Reducer") { context in
   
-  let (state, action, _) = context
+  let (state, action) = context.args
   
   switch action {
   case .setHeader(let header):

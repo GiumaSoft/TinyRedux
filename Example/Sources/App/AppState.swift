@@ -14,6 +14,10 @@ final class AppState: ReduxState {
   var message: String
   var counter: Int
   var counterMessage: String
+  var effectMessage: String
+  var effectIsRunning: Bool
+  var effectAlertMessage: String
+  var effectAlertPresented: Bool
   var timeCount: Int
   var timerIsRunning: Bool
   var uuid: String
@@ -29,6 +33,10 @@ final class AppState: ReduxState {
     message: String,
     counter: Int,
     counterMessage: String,
+    effectMessage: String,
+    effectIsRunning: Bool,
+    effectAlertMessage: String,
+    effectAlertPresented: Bool,
     timeCount: Int,
     timerIsRunning: Bool,
     uuid: String,
@@ -40,6 +48,10 @@ final class AppState: ReduxState {
     self.message = message
     self.counter = counter
     self.counterMessage = counterMessage
+    self.effectMessage = effectMessage
+    self.effectIsRunning = effectIsRunning
+    self.effectAlertMessage = effectAlertMessage
+    self.effectAlertPresented = effectAlertPresented
     self.timeCount = timeCount
     self.timerIsRunning = timerIsRunning
     self.uuid = uuid
@@ -54,6 +66,10 @@ final class AppState: ReduxState {
       message: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam eu fringilla libero, sed euismod ipsum.",
       counter: 0,
       counterMessage: "",
+      effectMessage: "Tap Run Effect to start.",
+      effectIsRunning: false,
+      effectAlertMessage: "",
+      effectAlertPresented: false,
       timeCount: 0,
       timerIsRunning: false,
       uuid: UUID().uuidString,
@@ -80,6 +96,10 @@ extension AppState.ReadOnlyAppState {
   var message: String { state.message }
   var counter: Int { state.counter }
   var counterMessage: String { state.counterMessage }
+  var effectMessage: String { state.effectMessage }
+  var effectIsRunning: Bool { state.effectIsRunning }
+  var effectAlertMessage: String { state.effectAlertMessage }
+  var effectAlertPresented: Bool { state.effectAlertPresented }
   var timeCount: Int { state.timeCount }
   var timerIsRunning: Bool { state.timerIsRunning }
   var uuid: String { state.uuid }

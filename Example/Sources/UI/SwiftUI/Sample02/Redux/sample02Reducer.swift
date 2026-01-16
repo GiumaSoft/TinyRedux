@@ -8,7 +8,7 @@ import TinyRedux
 @MainActor
 let sample02Reducer = Reducer<AppState, AppActions>(id: "sample02Reducer") { context in
   
-  let (state, action, _) = context
+  let (state, action) = context.args
   
   switch action {
   case .decrease:

@@ -8,9 +8,9 @@ import TinyRedux
 @MainActor
 let sample01Reducer = Reducer<AppState, AppActions>(id: "sample01Reducer") { context in
   
-  let (state, action, _) = context
+  let (state, action) = context.args
   
-  switch action {
+  switch context.action {
   case .insertDate:
     state.dates.append(Date.now)
   case .removeDate:

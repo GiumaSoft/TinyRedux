@@ -7,7 +7,8 @@ import TinyRedux
 
 @MainActor
 let sample02Middleware = StatedMiddleware<AppState, AppActions>(id: "Sample02Middleware", coordinator: Sample02Coordinator()) { coordinator, context in
-  let (state, dispatch, next, action, _) = context
+  
+  let (state, dispatch, next, action) = context.args
   
   switch action {
   case .startAutoCounter:

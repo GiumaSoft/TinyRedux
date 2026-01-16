@@ -21,6 +21,10 @@ struct ContentView: View {
           NavigationLink("Sample03") {
             Sample.SwiftUI.Sample03View()
           }
+
+          NavigationLink("Sample04") {
+            Sample.SwiftUI.Sample04View()
+          }
         } header: {
           Text("SwiftUI")
         }

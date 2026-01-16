@@ -26,13 +26,19 @@ let package = Package(
         ],
         path: "Sources",
         swiftSettings: [
-          .define("DEBUG", .when(configuration: .debug))
+          .define("DEBUG", .when(configuration: .debug)),
+          .enableUpcomingFeature("StrictConcurrency"),
+          .unsafeFlags([ "-Xfrontend", "-strict-concurrency=complete" ])
         ]
     ),
     .testTarget(
         name: "TinyReduxTests",
         dependencies: ["TinyRedux"],
-        path: "Tests"
+        path: "Tests",
+        swiftSettings: [
+          .enableUpcomingFeature("StrictConcurrency"),
+          .unsafeFlags(["-Xfrontend", "-strict-concurrency=complete"])
+        ]
     )
   ],
   swiftLanguageModes: [.version("6")]

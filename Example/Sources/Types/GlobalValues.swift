@@ -12,17 +12,22 @@ extension GlobalValues {
 
 @MainActor
 extension Store where S == AppState, A == AppActions {
-  static let main = Store(
+  static let main = Store.sharedInstance(
     initialState: AppState(),
-    middlewares: [Middleware(sample02Middleware)],
+    middlewares: [
+      Middleware(sample02Middleware),
+      sample04Middleware
+    ],
+    resolvers: [
+      sample04Resolver
+    ],
     reducers: [
       sample01Reducer,
       sample02Reducer,
-      sample03Reducer
+      sample03Reducer,
+      sample04Reducer
     ],
-    onException: { error in
-      
-    },
+
     onLog: { message in
       print(message)
     }
