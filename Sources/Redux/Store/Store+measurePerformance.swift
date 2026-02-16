@@ -8,7 +8,7 @@ extension Store {
   /// Comma-separated debug list of queued actions.
   var remainingActions: String {
     actionBuffer
-      .map { ".\($0)" }
+      .map { ".\($0.action)" }
       .joined(separator: ",")
   }
   /// Measures elapsed execution time for the supplied block, providing a lazy timer closure so

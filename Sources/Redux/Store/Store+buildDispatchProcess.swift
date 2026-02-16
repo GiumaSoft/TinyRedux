@@ -8,9 +8,9 @@ extension Store {
   /// Builds the composed dispatch processor that wires middleware, resolver, and reducer chains,
   /// ensuring logging and timing hooks are applied while preserving action order during execution
   /// on the MainActor for each. Builds the middleware chain and reducer pipeline.
-  func buildDispatchProcess() -> @MainActor (A) -> Void {
+  func buildDispatchProcess() -> @MainActor (EnqueuedAction) -> Void {
     /// Process reducers.
-    let reduce: (A) -> Void = { [unowned self] action in
+    let reduce: (A, @escaping @MainActor (Result<S.ReadOnly, ReduxError>) -> Void) -> Void = { [unowned self] action, finish in
       let currentState = self.state
       let reduce: (Reducer<S, A>, A, @escaping @MainActor @Sendable (Bool) -> Void) -> Void = { reducer, action, complete in
         let context = ReducerContext<S, A>(
@@ -34,10 +34,14 @@ extension Store {
           reduce(reducer, action, { _ in })
         }
       }
+
+      finish(.success(self.state.readOnly))
     }
     
     /// Process resolvers.
-    let resolve: (any Error, A, ReduxErrorOrigin) -> Void = { [unowned self] error, action, origin in
+    let resolve: (any Error, A, ReduxErrorOrigin, @escaping @MainActor (Result<S.ReadOnly, ReduxError>) -> Void) -> Void = {
+      [unowned self] error, action, origin, finish in
+
       if self.resolvers.isEmpty {
         if let onLog = self.onLog {
           self.measurePerformance { runTime in
@@ -47,63 +51,77 @@ extension Store {
             }
           }
         }
+        finish(.failure(.storeDropActionByUnresolvedError(error)))
         return
       }
       
-      let resolversChain: (any Error, A) -> Void = self.resolvers.reduce(
-        { _, action in
-          reduce(action)
-        }
-      ) { [unowned self] next, resolver in
-        { [unowned self] error, action in
-          var doNext = true
-          let runProcess: (@escaping @MainActor (Bool) -> Void) -> Void = { complete in
-            let context = ResolverContext<S, A>(
-              state: self.state.readOnly,
-              dispatch: self.dispatch,
-              error: error,
-              action: action,
-              origin: origin,
-              next: { error, action in
-                if doNext {
-                  doNext = false
-                  next(error, action)
-                }
-              },
-              complete: complete
-            )
-            
-            resolver.run(context)
-          }
+      for resolver in self.resolvers {
+        let runProcess: (@escaping @MainActor (Bool) -> Void) -> ResolverOutcome<A> = { complete in
+          let context = ResolverContext<S, A>(
+            state: self.state.readOnly,
+            dispatch: self.dispatch,
+            error: error,
+            action: action,
+            origin: origin,
+            complete: complete
+          )
           
-          if let onLog = self.onLog {
-            self.measurePerformance { runTime in
-              runProcess() { succeded in
-                switch origin {
-                case .middleware(let middlewareId):
-                  onLog(.resolver(resolver.id, middlewareId, error, action, runTime(), succeded))
-                }
+          return resolver.run(context)
+        }
+        
+        let outcome: ResolverOutcome<A>
+        if let onLog = self.onLog {
+          var measuredOutcome: ResolverOutcome<A> = .fail
+          self.measurePerformance { runTime in
+            measuredOutcome = runProcess { succeded in
+              switch origin {
+              case .middleware(let middlewareId):
+                onLog(.resolver(resolver.id, middlewareId, error, action, runTime(), succeded))
               }
             }
-          } else {
-            runProcess({ _ in })
           }
+          outcome = measuredOutcome
+        } else {
+          outcome = runProcess({ _ in })
+        }
+
+        switch outcome {
+        case .retry(let action):
+          self.dispatch(maxDispatchable: 0, action)
+          finish(.success(self.state.readOnly))
+          
+          return
+        case .reduce(let action):
+          reduce(action, finish)
+          
+          return
+        case .fail:
+          continue
         }
       }
-      
-      resolversChain(error, action)
+
+      finish(.failure(.storeDropActionByUnresolvedError(error)))
     }
     
     /// Process middlewares.
-    let process: @MainActor (A) -> Void = { [unowned self] action in
-      
+    let process: @MainActor (EnqueuedAction) -> Void = { [unowned self] enqueued in
+      let action = enqueued.action
+      var isCompleted = false
+      let finish: @MainActor (Result<S.ReadOnly, ReduxError>) -> Void = { result in
+        guard !isCompleted else { return }
+        isCompleted = true
+        enqueued.completion?(result)
+      }
+
       if self.middlewares.isEmpty {
-        reduce(action)
+        reduce(action, finish)
         return
       }
       
       let middlewaresChain: (A) -> Void = self.middlewares.reduce(
-        reduce
+        { action in
+          reduce(action, finish)
+        }
       ) { [unowned self] next, middleware in
         { [unowned self] action in
           var doNext = true
@@ -120,14 +138,14 @@ extension Store {
               action: action,
               complete: complete,
               resolve: { error in
-                resolve(error, action, .middleware(middleware.id))
+                resolve(error, action, .middleware(middleware.id), finish)
               }
             )
             
             do {
               try middleware.run(context)
             } catch {
-              resolve(error, action, .middleware(middleware.id))
+              resolve(error, action, .middleware(middleware.id), finish)
             }
           }
           

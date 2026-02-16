@@ -15,14 +15,14 @@ import Foundation
   /// A stable identifier for logging and metrics.
   public let id: String
   /// Stored handler invoked by `run` to process a resolver context.
-  private let handler: @MainActor @Sendable (ResolverContext<S, A>) -> Void
+  private let handler: @MainActor @Sendable (ResolverContext<S, A>) -> ResolverOutcome<A>
   /// Creates a resolver with an identifier and handler closure, storing it for MainActor execution
   /// when middleware errors occur, enabling remediation logic before reducers or further resolver
   /// chaining in the pipeline. Creates a resolver with the given handler.
   /// - Parameters:
   ///   - id: Identifier for logging and metrics.
   ///   - handler: The resolver handler.
-  public init(id: String, handler: @escaping @MainActor @Sendable (ResolverContext<S, A>) -> Void) {
+  public init(id: String, handler: @escaping @MainActor @Sendable (ResolverContext<S, A>) -> ResolverOutcome<A>) {
     self.id = id
     self.handler = handler
   }
@@ -39,7 +39,7 @@ import Foundation
   /// path when necessary. Runs the resolver for the given context.
   /// - Parameter context: The resolver context.
   @MainActor
-  public func run(_ context: ResolverContext<S, A>) {
+  public func run(_ context: ResolverContext<S, A>) -> ResolverOutcome<A> {
     handler(context)
   }
 }

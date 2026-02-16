@@ -12,7 +12,10 @@ extension Store {
   ///   - limit: Maximum buffered instances of the same action; 0 means unlimited.
   ///   - action: The action to dispatch.
   public func dispatch(maxDispatchable limit: UInt = 0, _ action: A) {
-    enqueue(action, limit: limit)
+    _ = enqueue(
+      .init(action: action, completion: nil),
+      limit: limit
+    )
     runDispatcher()
   }
   
@@ -23,7 +26,25 @@ extension Store {
   ///   - limit: Maximum buffered instances of the same action; 0 means unlimited.
   ///   - actions: The actions to dispatch.
   public func dispatch(maxDispatchable limit: UInt = 0, _ actions: A...) {
-    enqueue(contentsOf: actions, limit: limit)
+    _ = enqueue(
+      contentsOf: actions.map { .init(action: $0, completion: nil) },
+      limit: limit
+    )
     runDispatcher()
+  }
+
+  public func dispatch(
+    maxDispatchable limit: UInt = 0,
+    _ action: A,
+    completion: @escaping @MainActor (Result<S.ReadOnly, ReduxError>) -> Void
+  ) {
+    let enqueuedAction = EnqueuedAction(action: action, completion: completion)
+
+    switch enqueue(enqueuedAction, limit: limit) {
+    case .success:
+      runDispatcher()
+    case .failure(let error):
+      completion(.failure(error))
+    }
   }
 }
