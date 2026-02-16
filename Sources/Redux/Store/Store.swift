@@ -42,6 +42,11 @@ import SwiftUI
 @MainActor
 @dynamicMemberLookup
 public final class Store<S, A> where S : ReduxState, A : ReduxAction {
+  internal struct EnqueuedAction {
+    let action: A
+    let completion: (@MainActor @Sendable (Result<S.ReadOnly, ReduxError>) -> Void)?
+  }
+
   /// Mutable backing state stored by this store instance.
   internal var state: S
   /// Middleware chain executed for dispatched actions, stored in reverse order.
@@ -53,13 +58,13 @@ public final class Store<S, A> where S : ReduxState, A : ReduxAction {
   /// Optional logger callback used for diagnostics and timing.
   internal let onLog: ((Store.Log) -> Void)?
   /// Queue of pending actions awaiting processing.
-  internal var actionBuffer: Deque<A>
+  internal var actionBuffer: Deque<EnqueuedAction>
   /// Counts buffered occurrences for each action to enforce limits.
   internal var bufferedActionCount: [A: UInt]
   /// Tracks whether the dispatcher loop is currently active.
   internal var isDispatcherRunning: Bool
   /// Lazily built action processor combining middleware, resolver, and reducer pipelines.
-  internal lazy var dispatchProcess: @MainActor (A) -> Void = buildDispatchProcess()
+  internal lazy var dispatchProcess: @MainActor (EnqueuedAction) -> Void = buildDispatchProcess()
   
   /// Creates a store with initial state and pipeline components, initializes buffers and counters,
   /// and prepares logging so dispatching can process actions sequentially on the MainActor safely

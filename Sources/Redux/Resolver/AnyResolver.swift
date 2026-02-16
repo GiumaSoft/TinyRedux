@@ -15,8 +15,8 @@ public protocol AnyResolver: Identifiable, Sendable {
   /// The stable identity of the entity associated with this instance.
   var id: String { get }
   /// Defines the resolver entry point invoked on the MainActor with a resolver context, where
-  /// implementations inspect errors, optionally dispatch actions, and forward to the next resolver
-  /// in the chain safely. Runs the resolver with the provided context.
+  /// implementations inspect errors and return an explicit outcome for retry, direct reduce, or
+  /// failure. Runs the resolver with the provided context.
   @MainActor
-  func run(_ context: ResolverContext<S, A>)
+  func run(_ context: ResolverContext<S, A>) -> ResolverOutcome<A>
 }

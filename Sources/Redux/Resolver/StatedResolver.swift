@@ -15,7 +15,7 @@ import Foundation
   /// The stable identity of the entity associated with this instance.
   public let id: String
   /// Stored handler invoked by `run` to process a resolver context.
-  private let handler: @MainActor @Sendable (ResolverContext<S, A>) -> Void
+  private let handler: @MainActor @Sendable (ResolverContext<S, A>) -> ResolverOutcome<A>
   /// Creates a resolver bound to a coordinator instance, storing a handler that receives
   /// coordinator and context on the MainActor to keep stateful remediation logic isolated and
   /// reusable across errors safely. Creates a resolver with a coordinator instance.
@@ -27,7 +27,7 @@ import Foundation
   public init<C: Sendable>(
     id: String,
     coordinator: C,
-    handler: @escaping @MainActor @Sendable (C, ResolverContext<S, A>) -> Void
+    handler: @escaping @MainActor @Sendable (C, ResolverContext<S, A>) -> ResolverOutcome<A>
   ) {
     self.id = id
     self.handler = { context in
@@ -38,7 +38,7 @@ import Foundation
   /// remediation workflows that may dispatch new actions or short-circuit reduction for this action
   /// path when needed only. Runs the resolver for the given context.
   @MainActor
-  public func run(_ context: ResolverContext<S, A>) {
+  public func run(_ context: ResolverContext<S, A>) -> ResolverOutcome<A> {
     handler(context)
   }
 }

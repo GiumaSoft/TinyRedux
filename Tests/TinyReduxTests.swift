@@ -48,6 +48,8 @@ enum TestAction: Int, ReduxAction {
     var debugDescription: String { description }
 }
 
+private struct TestPipelineError: Error {}
+
 @Suite(.serialized)
 @MainActor
 struct TinyReduxTests {
@@ -69,6 +71,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in reducer order test: \(context.error)")
+                return .next
             }],
             reducers: [reducerA, reducerB]
         )
@@ -103,6 +106,7 @@ struct TinyReduxTests {
             middlewares: [middlewareA, middlewareB],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in middleware order test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -125,6 +129,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in maxDispatchable test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -145,6 +150,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in shared instance test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -153,6 +159,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in shared instance test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -170,6 +177,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in shared instance override test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -179,6 +187,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in shared instance override test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -196,6 +205,7 @@ struct TinyReduxTests {
             middlewares: [],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in measure performance test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -250,6 +260,7 @@ struct TinyReduxTests {
             middlewares: [middleware],
             resolvers: [Resolver(id: "resolver") { context in
                 #expect(Bool(false), "Unexpected error in deferred next test: \(context.error)")
+                return .next
             }],
             reducers: [reducer]
         )
@@ -262,5 +273,239 @@ struct TinyReduxTests {
         }
 
         #expect(state.log == ["inc", "run"])
+    }
+
+    @Test
+    func testDispatchCompletionReturnsSuccessAfterReducer() {
+        let state = TestState()
+        let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
+            let (state, action) = context.args
+            if action == .inc {
+                state.value += 1
+            }
+        }
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [],
+            resolvers: [Resolver(id: "resolver") { _ in .next }],
+            reducers: [reducer]
+        )
+
+        var completionResult: Result<TestReadOnly, ReduxError>?
+        store.dispatch(.inc) { result in
+            completionResult = result
+        }
+
+        if case .success(let readOnly) = completionResult {
+            #expect(readOnly.value == 1)
+        } else {
+            #expect(Bool(false), "Expected success completion")
+        }
+        #expect(state.value == 1)
+    }
+
+    @Test
+    func testDispatchCompletionReturnsFailureWhenDroppedByQueueLimit() {
+        let state = TestState()
+        var completionResult: Result<TestReadOnly, ReduxError>?
+        final class StoreBox {
+            var store: Store<TestState, TestAction>?
+        }
+        let storeBox = StoreBox()
+
+        let middleware = Middleware<TestState, TestAction>(id: "nested-dispatch-limit") { context in
+            let (_, _, next, action) = context.args
+            if action == .run {
+                storeBox.store?.dispatch(maxDispatchable: 1, .run) { result in
+                    completionResult = result
+                }
+            }
+            try next(action)
+        }
+        let reducer = Reducer<TestState, TestAction>(id: "noop") { _ in }
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [middleware],
+            resolvers: [Resolver(id: "resolver") { _ in .next }],
+            reducers: [reducer]
+        )
+        storeBox.store = store
+
+        store.dispatch(maxDispatchable: 1, .run)
+
+        if case .failure(.storeDropActionByQueueLimit(let limit)) = completionResult {
+            #expect(limit == 1)
+        } else {
+            #expect(Bool(false), "Expected queue-limit failure")
+        }
+    }
+
+    @Test
+    func testDispatchCompletionReturnsFailureWhenResolverReturnsNext() {
+        let state = TestState()
+        let middleware = Middleware<TestState, TestAction>(id: "throws") { context in
+            let (_, _, _, action) = context.args
+            if action == .run {
+                throw TestPipelineError()
+            }
+        }
+        let reducer = Reducer<TestState, TestAction>(id: "noop") { _ in }
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [middleware],
+            resolvers: [Resolver(id: "resolver-next") { _ in .next }],
+            reducers: [reducer]
+        )
+
+        var completionResult: Result<TestReadOnly, ReduxError>?
+        store.dispatch(.run) { result in
+            completionResult = result
+        }
+
+        if case .failure(.storeDropActionByUnresolvedError) = completionResult {
+            #expect(Bool(true))
+        } else {
+            #expect(Bool(false), "Expected unresolved-error failure")
+        }
+    }
+
+    @Test
+    func testDispatchCompletionReturnsFailureWhenResolverReturnsFailImmediately() {
+        let state = TestState()
+        let middleware = Middleware<TestState, TestAction>(id: "throws") { context in
+            let (_, _, _, action) = context.args
+            if action == .run {
+                throw TestPipelineError()
+            }
+        }
+        let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
+            let (state, action) = context.args
+            if action == .inc {
+                state.value += 1
+            }
+        }
+
+        var secondResolverCalled = false
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [middleware],
+            resolvers: [
+                Resolver(id: "resolver-retry") { _ in
+                    secondResolverCalled = true
+                    return .retry(.inc)
+                },
+                Resolver(id: "resolver-fail") { _ in .fail },
+            ],
+            reducers: [reducer]
+        )
+
+        var completionResult: Result<TestReadOnly, ReduxError>?
+        store.dispatch(.run) { result in
+            completionResult = result
+        }
+
+        if case .failure(.storeDropActionByUnresolvedError) = completionResult {
+            #expect(Bool(true))
+        } else {
+            #expect(Bool(false), "Expected unresolved-error failure")
+        }
+        #expect(secondResolverCalled == false)
+        #expect(state.value == 0)
+    }
+
+    @Test
+    func testDispatchCompletionReturnsSuccessWhenResolverReturnsRetry() {
+        let state = TestState()
+        let middleware = Middleware<TestState, TestAction>(id: "throws-on-run") { context in
+            let (_, _, next, action) = context.args
+            if action == .run {
+                throw TestPipelineError()
+            }
+            try next(action)
+        }
+        let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
+            let (state, action) = context.args
+            if action == .inc {
+                state.value += 1
+            }
+        }
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [middleware],
+            resolvers: [Resolver(id: "resolver-retry") { _ in .retry(.inc) }],
+            reducers: [reducer]
+        )
+
+        var completionResult: Result<TestReadOnly, ReduxError>?
+        store.dispatch(.run) { result in
+            completionResult = result
+        }
+
+        if case .success = completionResult {
+            #expect(Bool(true))
+        } else {
+            #expect(Bool(false), "Expected success for retry outcome")
+        }
+        #expect(state.value == 1)
+    }
+
+    @Test
+    func testDispatchCompletionReturnsSuccessWhenResolverReturnsReduce() {
+        let state = TestState()
+        let middleware = Middleware<TestState, TestAction>(id: "throws-on-run") { context in
+            let (_, _, _, action) = context.args
+            if action == .run {
+                throw TestPipelineError()
+            }
+        }
+        let reducer = Reducer<TestState, TestAction>(id: "inc") { context in
+            let (state, action) = context.args
+            if action == .inc {
+                state.value += 1
+            }
+        }
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [middleware],
+            resolvers: [Resolver(id: "resolver-reduce") { _ in .reduce(.inc) }],
+            reducers: [reducer]
+        )
+
+        var completionResult: Result<TestReadOnly, ReduxError>?
+        store.dispatch(.run) { result in
+            completionResult = result
+        }
+
+        if case .success(let readOnly) = completionResult {
+            #expect(readOnly.value == 1)
+        } else {
+            #expect(Bool(false), "Expected success for reduce outcome")
+        }
+    }
+
+    @Test
+    func testDispatchCompletionIsCalledExactlyOnce() {
+        let state = TestState()
+        let reducer = Reducer<TestState, TestAction>(id: "noop") { _ in }
+        let store = Store.sharedInstance(
+            override: true,
+            initialState: state,
+            middlewares: [],
+            resolvers: [Resolver(id: "resolver") { _ in .next }],
+            reducers: [reducer]
+        )
+
+        var callCount = 0
+        store.dispatch(.run) { _ in
+            callCount += 1
+        }
+
+        #expect(callCount == 1)
     }
 }

@@ -18,10 +18,11 @@ extension Store {
     
     isDispatcherRunning = true
     onLog?(.store("run dispatcher."))
-    while let action = actionBuffer.popFirst()  {
+    while let enqueuedAction = actionBuffer.popFirst()  {
+      let action = enqueuedAction.action
       onLog?(.store("actions in queue [\(remainingActions)]."))
       defer { decreaseCount(for: action) }
-      dispatchProcess(action)
+      dispatchProcess(enqueuedAction)
     }
   }
 }
