@@ -83,9 +83,9 @@ public extension AnyMiddleware
         localState,
         dispatch: { global.dispatch(moduleMap.toRootAction($0)) },
         action: localAction,
-        register: { id, origin, when, then in
+        register: { id, registeredBy, when, then in
           // predicate/handler read the captured local state, fresh on each evaluation.
-          global.register( id, moduleMap.toRootAction(origin),
+          global.register( id, moduleMap.toRootAction(registeredBy),
                            { _ in when(localState.readOnly) },
                            { _ in moduleMap.toRootAction(then(localState.readOnly)) } )
         },

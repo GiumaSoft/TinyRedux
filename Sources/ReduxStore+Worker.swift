@@ -184,8 +184,8 @@ extension ReduxStore {
             self.state,
             dispatch: dispatch,
             action: a,
-            register: { [weak self] id, origin, when, then in
-              self?.registerSubscription(id: id, origin: origin, registeredBy: middleware.id, when: when, then: then)
+            register: { [weak self] id, registeredBy, when, then in
+              self?.registerSubscription(id: id, origin: middleware.id, registeredBy: registeredBy, when: when, then: then)
             },
             unregister: { [weak self] id in self?.unregisterSubscription(id) }
           )
@@ -375,14 +375,14 @@ extension ReduxStore {
     /// Registers a State→Action subscription (called by the middleware context).
     @MainActor
     private func registerSubscription(id: String,
-                                      origin: A,
-                                      registeredBy: String,
+                                      origin: String,
+                                      registeredBy: A,
                                       when: @escaping SubscriptionPredicate<S>,
                                       then: @escaping SubscriptionHandler<S, A>)
     {
       let start = ContinuousClock.now
       subscriptions[id] = Subscription(id: id, origin: origin, registeredBy: registeredBy, when: when, then: then)
-      emit(.subscription(.subscribed(registeredBy: registeredBy, id: id, origin: origin, duration: .now - start)))
+      emit(.subscription(.subscribed(origin: origin, id: id, registeredBy: registeredBy, duration: .now - start)))
     }
 
     /// Removes a subscription by id (called by the middleware context).
@@ -391,7 +391,7 @@ extension ReduxStore {
     {
       let start = ContinuousClock.now
       guard let removed = subscriptions.removeValue(forKey: id) else { return }
-      emit(.subscription(.unsubscribed(registeredBy: removed.registeredBy, id: id, duration: .now - start)))
+      emit(.subscription(.unsubscribed(origin: removed.origin, id: id, duration: .now - start)))
     }
 
     /// Evaluates every subscription against the current state; fires (dispatches) the
@@ -405,11 +405,11 @@ extension ReduxStore {
       {
         let start = ContinuousClock.now
         let action = subscription.then(readOnly)
-        emit(.subscription(.executed(registeredBy: subscription.registeredBy,
+        emit(.subscription(.executed(origin: subscription.origin,
                                      id: subscription.id,
-                                     origin: subscription.origin,
+                                     registeredBy: subscription.registeredBy,
                                      duration: .now - start,
-                                     action: action)))
+                                     trigger: action)))
         dispatch(action)
       }
     }

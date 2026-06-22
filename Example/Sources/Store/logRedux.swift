@@ -54,12 +54,12 @@ public func logRedux<S, A>(_ log: ReduxLog<S, A>) where S: ReduxState, A: ReduxA
       break
 
     // ── SUBSCRIPTION ──────────────────────────────────────────────────────────────────
-    case let .subscription(.subscribed(registeredBy, subId, origin, duration)):
-      emit(.info, "SUBSCRIPTION", "subscribed by \(registeredBy)", id: subId, action: origin, duration: duration)
-    case let .subscription(.executed(registeredBy, subId, origin, duration, action)):
-      emit(.info, "SUBSCRIPTION", "executed by \(registeredBy) → dispatch \(action.id)", id: subId, action: origin, duration: duration)
-    case let .subscription(.unsubscribed(registeredBy, subId, duration)):
-      emit(.info, "SUBSCRIPTION", "unsubscribed by \(registeredBy)", id: subId, duration: duration)
+    case let .subscription(.subscribed(_, subId, registeredBy, duration)):
+      emit(.info, "SUBSCRIPTION", "register subscription \(subId)", id: subId, action: registeredBy, duration: duration)
+    case let .subscription(.executed(_, subId, registeredBy, duration, trigger)):
+      emit(.info, "SUBSCRIPTION", "fire subscription \(subId) → dispatch \(trigger.id)", id: subId, action: registeredBy, duration: duration)
+    case let .subscription(.unsubscribed(_, subId, duration)):
+      emit(.info, "SUBSCRIPTION", "unregister subscription \(subId)", id: subId, duration: duration)
 
     // ── SNAPSHOT (dev) ────────────────────────────────────────────────────────────────
     case let .snapshot(.resolved(action, byteCount, duration)):

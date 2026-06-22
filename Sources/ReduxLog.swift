@@ -38,18 +38,19 @@ where S: ReduxState, A: ReduxAction
 /// SubscriptionLog
 ///
 /// Lifecycle/firing events for a State→Action ``Subscription`` — the worker emits these as
-/// `ReduxLog.subscription(_:)`. Carries `registeredBy` (middleware id), the subscription id,
-/// the originating action, and the elapsed time (plus the dispatched action for `executed`).
+/// `ReduxLog.subscription(_:)`. Carries `origin` (middleware id), the subscription id,
+/// `registeredBy` (the action during which it was registered), and the elapsed time
+/// (plus `trigger`, the action dispatched on firing, for `executed`).
 public enum SubscriptionLog<A: ReduxAction>: Sendable
 {
   /// A subscription was registered.
-  case subscribed(registeredBy: String, id: String, origin: A, duration: Duration)
+  case subscribed(origin: String, id: String, registeredBy: A, duration: Duration)
 
-  /// A subscription fired: its predicate held and `action` was dispatched.
-  case executed(registeredBy: String, id: String, origin: A, duration: Duration, action: A)
+  /// A subscription fired: its predicate held and `trigger` was dispatched.
+  case executed(origin: String, id: String, registeredBy: A, duration: Duration, trigger: A)
 
   /// A subscription was removed.
-  case unsubscribed(registeredBy: String, id: String, duration: Duration)
+  case unsubscribed(origin: String, id: String, duration: Duration)
 }
 
 

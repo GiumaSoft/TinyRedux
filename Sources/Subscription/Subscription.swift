@@ -11,18 +11,18 @@ import Foundation
 /// ``MiddlewareContext/subscribe(id:when:then:)``, removed by `id`.
 ///
 /// NO `generation` (rejected with the flush/suspend cluster) — lifecycle is purely by id.
-/// `origin` records the action that registered it (tracing).
+/// `registeredBy` records the action that registered it (tracing).
 public struct Subscription<S, A>: Sendable, Identifiable
 where S: ReduxState, A: ReduxAction
 {
   /// Stable id (caller-provided or generated); the key for `unsubscribe`.
   public let id: String
 
-  /// The action that registered this subscription (tracing).
-  public let origin: A
-
   /// The id of the middleware that registered this subscription (tracing).
-  public let registeredBy: String
+  public let origin: String
+
+  /// The action during which this subscription was registered (tracing).
+  public let registeredBy: A
 
   /// Fires the reaction when it turns true.
   public let when: SubscriptionPredicate<S>
@@ -31,8 +31,8 @@ where S: ReduxState, A: ReduxAction
   public let then: SubscriptionHandler<S, A>
 
   init(id: String,
-       origin: A,
-       registeredBy: String,
+       origin: String,
+       registeredBy: A,
        when: @escaping SubscriptionPredicate<S>,
        then: @escaping SubscriptionHandler<S, A>)
   {
