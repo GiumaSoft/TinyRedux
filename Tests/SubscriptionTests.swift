@@ -59,3 +59,32 @@ func subscription_unsubscribeStopsReaction() async
 
   #expect(store.counter == 1)                // no runaway: the reaction was unregistered
 }
+
+
+@MainActor
+@Test
+func subscription_firesOnce_whilePredicateStaysTrue() async
+{
+  let once = Box()
+  let setup = AnyReduxMiddleware<AppState, AppActions>(id: "setup")
+  { context in
+    if case .increment = context.action, !once.flag
+    {
+      once.mark()
+      // Reaction keeps the predicate true (counter only grows), so a
+      // level-triggered subscription would run away. Fire-once must fire exactly once.
+      context.subscribe(when: { $0.counter >= 2 }) { _ in .increment }
+    }
+    return .next
+  }
+
+  let store = ReduxStore(initialState: AppState(),
+                         reducers: [mainReducer],
+                         middlewares: [setup])
+
+  store.dispatch(.increment)                 // 1 (registers; predicate false)
+  store.dispatch(.increment)                 // 2 → predicate holds → fire ONCE → .increment → 3
+  for _ in 0..<200 { await Task.yield() }
+
+  #expect(store.counter == 3)                // fired once (2→3) then removed; no runaway
+}

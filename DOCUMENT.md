@@ -2,7 +2,7 @@
 
 |              |                                     |
 |--------------|-------------------------------------|
-| **Version**  | 1.0.22                              |
+| **Version**  | 1.0.23                              |
 | **Platform** | iOS 18+, macOS 15+                  |
 | **Swift**    | 6.0 (Strict Concurrency)            |
 
@@ -80,7 +80,7 @@ TinyRedux is a Swift 6 framework for application state management based on the *
 Add the package to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/GiumaSoft/TinyRedux", from: "1.0.22")
+.package(url: "https://github.com/GiumaSoft/TinyRedux", from: "1.0.23")
 ```
 
 ---

@@ -394,14 +394,24 @@ extension ReduxStore {
       emit(.subscription(.unsubscribed(origin: removed.origin, id: id, duration: .now - start)))
     }
 
-    /// Evaluates every subscription against the current state; fires (dispatches) the
-    /// matching reactions. Called after each reduce. Lifecycle is the dev's (unsubscribe).
+    /// Evaluates every subscription against the current state and fires (dispatches) the
+    /// matching reactions **once** — each fired subscription is REMOVED before its reaction
+    /// is dispatched (fire-once on the `when` condition). Removing first means a re-entrant
+    /// reduce cannot re-fire it and a predicate that stays true does not run away. Called
+    /// after each reduce. A subscription may also be cancelled early by id (`unsubscribe`).
     @MainActor
     private func evaluateSubscriptions()
     {
       guard !subscriptions.isEmpty else { return }
       let readOnly = state.readOnly
-      for subscription in subscriptions.values where subscription.when(readOnly)
+
+      let fired = subscriptions.values.filter { $0.when(readOnly) }
+      guard !fired.isEmpty else { return }
+
+      // Remove all matches up-front, then dispatch — fire-once, re-entrancy-safe.
+      for subscription in fired { subscriptions.removeValue(forKey: subscription.id) }
+
+      for subscription in fired
       {
         let start = ContinuousClock.now
         let action = subscription.then(readOnly)

@@ -45,7 +45,7 @@ This separation keeps the architecture clean and aligns with `SOLID` principles 
 Swift Package Manager — add the dependency to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/GiumaSoft/TinyRedux", from: "1.0.22")
+.package(url: "https://github.com/GiumaSoft/TinyRedux", from: "1.0.23")
 ```
 
 ## Examples

@@ -59,7 +59,8 @@ where S: ReduxState, A: ReduxAction
 public extension ReduxMiddlewareContext
 {
   /// Registers a State→Action subscription: when `condition(state)` turns true, the
-  /// worker dispatches `action(state)`. Returns the id (for `unsubscribe`).
+  /// worker dispatches `action(state)` **once** and removes it (fire-once). Returns the
+  /// id, usable to cancel it early via `unsubscribe` before it fires.
   @MainActor
   @discardableResult
   func subscribe(id: String = UUID().uuidString,

@@ -7,8 +7,9 @@ import Foundation
 /// ReduxSubscription
 ///
 /// A registry entry for the State→Action mechanism: when `when(state)` turns true on a
-/// state change, the worker dispatches `then(state)`. Registered by a middleware via
-/// ``ReduxMiddlewareContext/subscribe(id:when:then:)``, removed by `id`.
+/// state change, the worker dispatches `then(state)` **once** and removes the entry
+/// (fire-once). Registered by a middleware via
+/// ``ReduxMiddlewareContext/subscribe(id:when:then:)``; may also be cancelled early by `id`.
 ///
 /// NO `generation` (rejected with the flush/suspend cluster) — lifecycle is purely by id.
 /// `registeredBy` records the action that registered it (tracing).
