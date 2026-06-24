@@ -4,12 +4,12 @@
 import Foundation
 
 
-/// MiddlewareExitTarget
+/// ReduxMiddlewareExitTarget
 ///
 /// The ways a middleware (or a `.deferred` resume) can LEAVE the middleware chain,
-/// grouped under ``MiddlewareExit/exit(_:)``. Named by destination — no `ExitResult`
+/// grouped under ``ReduxMiddlewareExit/exit(_:)``. Named by destination — no `ExitResult`
 /// conflation, no snapshot semantics here.
-public enum MiddlewareExitTarget<A: ReduxAction>: Sendable
+public enum ReduxMiddlewareExitTarget<A: ReduxAction>: Sendable
 {
   /// → REDUCER with the current action (skips the remaining middlewares).
   case reduce
@@ -18,21 +18,21 @@ public enum MiddlewareExitTarget<A: ReduxAction>: Sendable
   case reduceAs(A)
 
   /// → RESOLVER (explicit error routing, e.g. from a manual `do/try/catch`).
-  case resolve(SendableError)
+  case resolve(ReduxSendableError)
 
   /// → ∅ terminate the chain, NO reduce (success).
   case done
 }
 
 
-/// MiddlewareExit
+/// ReduxMiddlewareExit
 ///
-/// Control-flow returned by a ``Middleware``'s `run`. `next`/`defaultNext`/`nextAs`
+/// Control-flow returned by a ``ReduxMiddleware``'s `run`. `next`/`defaultNext`/`nextAs`
 /// STAY in the chain; `exit(_:)` LEAVES it (→ reducer / resolver / ∅); `task`/`deferred`
 /// are async effects. Errors normally travel via `throw` (→ resolver); `exit(.resolve)`
 /// is the explicit, manually-caught variant. No `.fail` here — terminal failure lives
 /// in the RESOLVER.
-public enum MiddlewareExit<S, A>: Sendable
+public enum ReduxMiddlewareExit<S, A>: Sendable
 where S: ReduxState, A: ReduxAction
 {
   /// Continue the chain with the SAME action (handled).
@@ -45,22 +45,22 @@ where S: ReduxState, A: ReduxAction
   case nextAs(A)
 
   /// Leave the chain → reduce / reduceAs / resolve / done.
-  case exit(MiddlewareExitTarget<A>)
+  case exit(ReduxMiddlewareExitTarget<A>)
 
   /// Fire-and-forget async effect; the chain continues immediately.
-  case task(TaskHandler<S>)
+  case task(ReduxTaskHandler<S>)
 
-  /// Async effect that SUSPENDS the chain and resumes with a ``MiddlewareResumeExit``.
-  case deferred(DeferredTaskHandler<S, A>)
+  /// Async effect that SUSPENDS the chain and resumes with a ``ReduxMiddlewareResumeExit``.
+  case deferred(ReduxDeferredTaskHandler<S, A>)
 }
 
 
-/// MiddlewareResumeExit
+/// ReduxMiddlewareResumeExit
 ///
 /// Returned by a `.deferred` handler to RESUME the suspended chain. A subset of
-/// ``MiddlewareExit`` (reuses ``MiddlewareExitTarget``) — no `task`/`deferred`
+/// ``ReduxMiddlewareExit`` (reuses ``ReduxMiddlewareExitTarget``) — no `task`/`deferred`
 /// (no nested async), no `defaultNext`. Only `<A>`: it never touches `S`.
-public enum MiddlewareResumeExit<A: ReduxAction>: Sendable
+public enum ReduxMiddlewareResumeExit<A: ReduxAction>: Sendable
 {
   /// Resume with the original action.
   case next
@@ -69,5 +69,5 @@ public enum MiddlewareResumeExit<A: ReduxAction>: Sendable
   case nextAs(A)
 
   /// Leave the chain → reduce / reduceAs / resolve / done.
-  case exit(MiddlewareExitTarget<A>)
+  case exit(ReduxMiddlewareExitTarget<A>)
 }

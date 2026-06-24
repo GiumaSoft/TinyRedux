@@ -27,7 +27,7 @@ extension ReduxStore {
   where T: ReduxStateSnapshot<S>
   {
     await withCheckedContinuation { continuation in
-      let request: SnapshotRequest<S> = (
+      let request: ReduxSnapshotRequest<S> = (
         continuation: continuation,
         capture: { readOnly, encoder in try encoder.encode(T(state: readOnly)) }
       )

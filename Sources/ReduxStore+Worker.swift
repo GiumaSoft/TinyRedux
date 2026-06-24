@@ -22,17 +22,17 @@ extension ReduxStore {
     let reducers: [AnyReduxReducer<S, A>]
 
     /// Action interceptors, run BEFORE the reducers (Redux `applyMiddleware`).
-    let middlewares: [AnyMiddleware<S, A>]
+    let middlewares: [AnyReduxMiddleware<S, A>]
 
     /// Error handlers, run when a middleware/effect raises (throw / `.exit(.resolve)`).
-    let resolvers: [AnyResolver<S, A>]
+    let resolvers: [AnyReduxResolver<S, A>]
 
     let dispatcher: Dispatcher
 
     /// Optional structured-log sink. `@Sendable`; thread-safety is the handler's.
     let onLog: ReduxLogHandler<S, A>?
 
-    let options: StoreOptions
+    let options: ReduxStoreOptions
 
     @MainActor
     private var task: Task<Void, Never>?
@@ -42,7 +42,7 @@ extension ReduxStore {
 
     /// State→Action subscriptions, keyed by id (no generation; lifecycle by id).
     @MainActor
-    private var subscriptions: [String: Subscription<S, A>] = [:]
+    private var subscriptions: [String: ReduxSubscription<S, A>] = [:]
 
     /// Active snapshot streams (State→Data feeds). Finished eagerly by the store's `deinit`
     /// via ``finishAllStreams()`` (a separate `@MainActor` object → reached via a main-actor
@@ -65,9 +65,9 @@ extension ReduxStore {
 
     init( initialState state: S,
           reducers: [AnyReduxReducer<S, A>],
-          middlewares: [AnyMiddleware<S, A>] = [],
-          resolvers: [AnyResolver<S, A>] = [],
-          options: StoreOptions = .init(),
+          middlewares: [AnyReduxMiddleware<S, A>] = [],
+          resolvers: [AnyReduxResolver<S, A>] = [],
+          options: ReduxStoreOptions = .init(),
           onLog: ReduxLogHandler<S, A>? = nil )
     {
       self.state = state
@@ -97,7 +97,7 @@ extension ReduxStore {
     /// Enqueues an action for asynchronous processing. Thread-safe, any context.
     @discardableResult
     nonisolated
-    func dispatch(_ action: A, rate: DispatchRateLimit = .none) -> Result<Void, ReduxError>
+    func dispatch(_ action: A, rate: ReduxDispatchRateLimit = .none) -> Result<Void, ReduxError>
     {
       let result = dispatcher.tryEnqueue(action, rate: rate)
       if case .failure(let error) = result
@@ -107,11 +107,11 @@ extension ReduxStore {
       return result
     }
 
-    /// Enqueues an action carrying a single-shot ``SnapshotRequest`` (always `.none` rate).
+    /// Enqueues an action carrying a single-shot ``ReduxSnapshotRequest`` (always `.none` rate).
     /// On enqueue rejection the continuation is resolved immediately so the caller never
     /// hangs. Thread-safe, any context.
     nonisolated
-    func dispatch(_ action: A, snapshot request: SnapshotRequest<S>)
+    func dispatch(_ action: A, snapshot request: ReduxSnapshotRequest<S>)
     {
       let result = dispatcher.tryEnqueue(action, rate: .none, onTerminal: request)
       if case .failure(let error) = result
@@ -124,7 +124,7 @@ extension ReduxStore {
     // MARK: - Pipeline
 
     /// Processes one action on the main actor: MIDDLEWARE chain → REDUCER, threading the
-    /// single-shot terminal (built from the event's optional ``SnapshotRequest``).
+    /// single-shot terminal (built from the event's optional ``ReduxSnapshotRequest``).
     @MainActor
     private func runProcess(_ event: TaggedActionEvent)
     {
@@ -138,7 +138,7 @@ extension ReduxStore {
     /// `.failure` if encoding throws); `.failure(error)` → resume `.failure`. Resolving the
     /// continuation never needs `self`; only logging does.
     @MainActor
-    private func makeTerminal(_ action: A, _ request: SnapshotRequest<S>?) -> SnapshotTerminal<S>?
+    private func makeTerminal(_ action: A, _ request: ReduxSnapshotRequest<S>?) -> ReduxSnapshotTerminal<S>?
     {
       guard let request else { return nil }
       return { [weak self] result in
@@ -168,7 +168,7 @@ extension ReduxStore {
     /// Folds the middlewares (declaration order) into a chain seeded by the reducer stage.
     /// `terminal` (single-shot snapshot) is threaded to every settle point and fires once.
     @MainActor
-    private func runMiddleware(_ action: A, _ terminal: SnapshotTerminal<S>?)
+    private func runMiddleware(_ action: A, _ terminal: ReduxSnapshotTerminal<S>?)
     {
       let dispatch: @Sendable (A) -> Void = { [weak self] a in self?.dispatch(a) }
       let seed: @MainActor (A) -> Void = { [weak self] a in self?.reduceChain(a, terminal) }
@@ -180,7 +180,7 @@ extension ReduxStore {
         { [weak self] a in
           guard let self else { return }
 
-          let context = MiddlewareContext(
+          let context = ReduxMiddlewareContext(
             self.state,
             dispatch: dispatch,
             action: a,
@@ -191,7 +191,7 @@ extension ReduxStore {
           )
 
           let start = ContinuousClock.now
-          let exit: MiddlewareExit<S, A>
+          let exit: ReduxMiddlewareExit<S, A>
           do { exit = try middleware.run(context) }
           catch { self.resolveChain(error, a, origin: middleware.id, terminal); return }
 
@@ -232,7 +232,7 @@ extension ReduxStore {
     /// Reducer stage: applies the reducers, evaluates the subscriptions, ticks the snapshot
     /// streams, then fires the single-shot `terminal` once on the settled projection.
     @MainActor
-    private func reduceChain(_ action: A, _ terminal: SnapshotTerminal<S>? = nil)
+    private func reduceChain(_ action: A, _ terminal: ReduxSnapshotTerminal<S>? = nil)
     {
       runReducers(action)
       evaluateSubscriptions()
@@ -260,14 +260,14 @@ extension ReduxStore {
       }
     }
 
-    // MARK: - Resolver (error branch)
+    // MARK: - ReduxResolver (error branch)
 
     /// Folds the resolvers (declaration order), seeded by the default resolver (fail).
     @MainActor
-    private func resolveChain(_ error: SendableError, _ action: A, origin: ReduxOrigin,
-                             _ terminal: SnapshotTerminal<S>? = nil)
+    private func resolveChain(_ error: ReduxSendableError, _ action: A, origin: ReduxOrigin,
+                             _ terminal: ReduxSnapshotTerminal<S>? = nil)
     {
-      let fail: @MainActor (SendableError, A) -> Void = { [weak self] e, a in
+      let fail: @MainActor (ReduxSendableError, A) -> Void = { [weak self] e, a in
         self?.emit(.resolver(id: "default", action: a, duration: .zero, exit: .exit(.fail(e)), error: e))
         terminal?(.failure(e))                  // unhandled → fail the single-shot
       }
@@ -279,7 +279,7 @@ extension ReduxStore {
         { [weak self] e, a in
           guard let self else { return }
 
-          let context = ResolverContext(
+          let context = ReduxResolverContext(
             self.state,
             action: a,
             error: e,
@@ -319,7 +319,7 @@ extension ReduxStore {
     /// Errors route to the resolver. The body runs on the main actor (reads `@MainActor`
     /// state; `await` points free the main actor for I/O).
     @MainActor
-    private func runTask(_ body: @escaping TaskHandler<S>, _ action: A, origin: ReduxOrigin)
+    private func runTask(_ body: @escaping ReduxTaskHandler<S>, _ action: A, origin: ReduxOrigin)
     {
       let id = UUID()
       let task = Task { @MainActor [weak self] in
@@ -333,11 +333,11 @@ extension ReduxStore {
 
     /// Suspending effect: awaits the handler, then RESUMES the chain per the resume exit.
     @MainActor
-    private func runDeferredTask(_ handler: @escaping DeferredTaskHandler<S, A>,
+    private func runDeferredTask(_ handler: @escaping ReduxDeferredTaskHandler<S, A>,
                                  _ next: @escaping @MainActor (A) -> Void,
                                  _ action: A,
                                  origin: ReduxOrigin,
-                                 _ terminal: SnapshotTerminal<S>?)
+                                 _ terminal: ReduxSnapshotTerminal<S>?)
     {
       let id = UUID()
       let task = Task { @MainActor [weak self] in
@@ -377,11 +377,11 @@ extension ReduxStore {
     private func registerSubscription(id: String,
                                       origin: String,
                                       registeredBy: A,
-                                      when: @escaping SubscriptionPredicate<S>,
-                                      then: @escaping SubscriptionHandler<S, A>)
+                                      when: @escaping ReduxSubscriptionPredicate<S>,
+                                      then: @escaping ReduxSubscriptionHandler<S, A>)
     {
       let start = ContinuousClock.now
-      subscriptions[id] = Subscription(id: id, origin: origin, registeredBy: registeredBy, when: when, then: then)
+      subscriptions[id] = ReduxSubscription(id: id, origin: origin, registeredBy: registeredBy, when: when, then: then)
       emit(.subscription(.subscribed(origin: origin, id: id, registeredBy: registeredBy, duration: .now - start)))
     }
 
@@ -488,7 +488,7 @@ extension ReduxStore {
     /// when it is the one that removed the entry (`unregister` returned `true`), so each
     /// stream is finished-logged exactly once across all termination sources.
     @MainActor
-    func noteStreamFinished(id: String, reason: StreamFinishReason)
+    func noteStreamFinished(id: String, reason: ReduxStreamFinishReason)
     {
       emit(.snapshot(.streamFinished(id: id, reason: reason)))
     }

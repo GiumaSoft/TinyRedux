@@ -70,7 +70,7 @@ func backpressure_warnsOnHighFrequencyAction() async
   let store = ReduxStore(
     initialState: AppState(),
     reducers: [mainReducer],
-    options: StoreOptions(pressureWindow: .seconds(10),
+    options: ReduxStoreOptions(pressureWindow: .seconds(10),
                           pressureThreshold: 3,
                           pressureCooldown: .zero),
     onLog: { collector.receive($0) }

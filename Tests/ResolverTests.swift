@@ -1,5 +1,5 @@
 //
-//  Resolver: the error branch. Reached by a middleware `throw` or `.exit(.resolve)`.
+//  ReduxResolver: the error branch. Reached by a middleware `throw` or `.exit(.resolve)`.
 //  Recovers (`.reduce`/`.reduceAs`), absorbs (`.done`), or fails (default / `.fail`).
 //
 
@@ -12,12 +12,12 @@ import Foundation
 @Test
 func resolver_recoversWithReduceAs() async
 {
-  let thrower = AnyMiddleware<AppState, AppActions>(id: "thrower")
+  let thrower = AnyReduxMiddleware<AppState, AppActions>(id: "thrower")
   { context in
     if case .increment = context.action { throw TestError.boom }
     return .next
   }
-  let recover = AnyResolver<AppState, AppActions>(id: "recover") { _ in .exit(.reduceAs(.decrement)) }
+  let recover = AnyReduxResolver<AppState, AppActions>(id: "recover") { _ in .exit(.reduceAs(.decrement)) }
 
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],
@@ -35,12 +35,12 @@ func resolver_recoversWithReduceAs() async
 @Test
 func resolver_recoversWithReduceOriginalAction() async
 {
-  let thrower = AnyMiddleware<AppState, AppActions>(id: "thrower")
+  let thrower = AnyReduxMiddleware<AppState, AppActions>(id: "thrower")
   { context in
     if case .increment = context.action { throw TestError.boom }
     return .next
   }
-  let recover = AnyResolver<AppState, AppActions>(id: "recover") { _ in .exit(.reduce) }
+  let recover = AnyReduxResolver<AppState, AppActions>(id: "recover") { _ in .exit(.reduce) }
 
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],
@@ -58,12 +58,12 @@ func resolver_recoversWithReduceOriginalAction() async
 @Test
 func resolver_unhandledLeavesStateUnchanged() async
 {
-  let thrower = AnyMiddleware<AppState, AppActions>(id: "thrower")
+  let thrower = AnyReduxMiddleware<AppState, AppActions>(id: "thrower")
   { context in
     if case .increment = context.action { throw TestError.boom }
     return .next
   }
-  let passing = AnyResolver<AppState, AppActions>(id: "passing") { _ in .defaultNext }
+  let passing = AnyReduxResolver<AppState, AppActions>(id: "passing") { _ in .defaultNext }
 
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],
@@ -81,12 +81,12 @@ func resolver_unhandledLeavesStateUnchanged() async
 @Test
 func resolver_explicitResolveExitRoutesToResolver() async
 {
-  let raiser = AnyMiddleware<AppState, AppActions>(id: "raiser")
+  let raiser = AnyReduxMiddleware<AppState, AppActions>(id: "raiser")
   { context in
     if case .increment = context.action { return .exit(.resolve(TestError.boom)) }
     return .next
   }
-  let recover = AnyResolver<AppState, AppActions>(id: "recover") { _ in .exit(.reduceAs(.decrement)) }
+  let recover = AnyReduxResolver<AppState, AppActions>(id: "recover") { _ in .exit(.reduceAs(.decrement)) }
 
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],

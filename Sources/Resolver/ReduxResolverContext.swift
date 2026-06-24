@@ -4,13 +4,13 @@
 import Foundation
 
 
-/// ResolverContext
+/// ReduxResolverContext
 ///
-/// What a ``Resolver`` receives: the live `state`, the `action` that errored, the
-/// `error` to resolve, its `origin` (tracing), and `dispatch`. Like ``MiddlewareContext``
+/// What a ``ReduxResolver`` receives: the live `state`, the `action` that errored, the
+/// `error` to resolve, its `origin` (tracing), and `dispatch`. Like ``ReduxMiddlewareContext``
 /// it carries the live `state` (read-only by convention) so the module lift can project
 /// the local state via ``ReduxModuleMap/toState``. No `subscribe` (resolvers don't subscribe).
-public struct ResolverContext<S, A>: Sendable
+public struct ReduxResolverContext<S, A>: Sendable
 where S: ReduxState, A: ReduxAction
 {
   /// The live state — read-only by convention (do NOT mutate from a resolver).
@@ -20,7 +20,7 @@ where S: ReduxState, A: ReduxAction
   public let action: A
 
   /// The error to resolve.
-  public let error: SendableError
+  public let error: ReduxSendableError
 
   /// Origin of the originating action (tracing/logging).
   public let origin: ReduxOrigin
@@ -30,7 +30,7 @@ where S: ReduxState, A: ReduxAction
 
   init(_ state: S,
        action: A,
-       error: SendableError,
+       error: ReduxSendableError,
        origin: ReduxOrigin,
        dispatch: @escaping @Sendable (A) -> Void)
   {
@@ -39,5 +39,11 @@ where S: ReduxState, A: ReduxAction
     self.error = error
     self.origin = origin
     self.dispatch = dispatch
+  }
+
+  /// Destructured members: `(state, dispatch, error, origin, action)`.
+  public var args: ReduxResolverArgs<S, A>
+  {
+    (state, dispatch, error, origin, action)
   }
 }

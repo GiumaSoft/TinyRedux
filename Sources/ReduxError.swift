@@ -14,7 +14,7 @@ public enum ReduxError: Error, Sendable
   /// The dispatcher stream has been terminated (the store/worker is shutting down).
   case terminated
 
-  /// A ``DispatchRateLimit`` (`.limit`/`.throttle`) dropped this action at the dispatch gate.
+  /// A ``ReduxDispatchRateLimit`` (`.limit`/`.throttle`) dropped this action at the dispatch gate.
   case rateLimited
 
   /// A pending snapshot request was abandoned because the store was torn down

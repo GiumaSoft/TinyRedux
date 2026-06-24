@@ -4,7 +4,7 @@
 import Foundation
 
 
-/// SnapshotSpec
+/// ReduxSnapshotSpec
 ///
 /// Transportable, `Sendable` specification of a snapshot stream: what to capture, when
 /// to emit, and how the stream is bounded. Passed to the streaming overload of
@@ -17,7 +17,7 @@ import Foundation
 /// - `limit`: **required** bound — every stream is finite (`count` / `time` /
 ///   `timeOrCount`). Consumer cancellation and `deinit` are additional early-termination
 ///   sources.
-public struct SnapshotSpec<S>: Sendable where S: ReduxState
+public struct ReduxSnapshotSpec<S>: Sendable where S: ReduxState
 {
   /// Required stream bound. Consumer cancel / `deinit` are additional early terminations.
   public enum Limit: Sendable
@@ -71,7 +71,7 @@ public struct SnapshotSpec<S>: Sendable where S: ReduxState
                      limit: Limit )
   where T: ReduxStateSnapshot<S>, K: Hashable & Sendable
   {
-    assert(limit.hasPositiveCountBound, "SnapshotSpec.Limit count bound must be greater than 0")
+    assert(limit.hasPositiveCountBound, "ReduxSnapshotSpec.Limit count bound must be greater than 0")
     self.trigger     = { AnyHashable(key($0)) }
     self.encode      = { try $1.encode(T(state: $0)) }
     self.emitInitial = emitInitial
@@ -94,7 +94,7 @@ public struct SnapshotSpec<S>: Sendable where S: ReduxState
                      limit: Limit )
   where T: ReduxStateSnapshot<S>, K: Hashable & Sendable
   {
-    assert(limit.hasPositiveCountBound, "SnapshotSpec.Limit count bound must be greater than 0")
+    assert(limit.hasPositiveCountBound, "ReduxSnapshotSpec.Limit count bound must be greater than 0")
     self.trigger     = { AnyHashable(key($0)) }
     self.encode      = { try $1.encode(build($0)) }
     self.emitInitial = emitInitial

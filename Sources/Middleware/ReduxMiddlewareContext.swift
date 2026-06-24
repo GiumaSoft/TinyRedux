@@ -4,16 +4,16 @@
 import Foundation
 
 
-/// MiddlewareContext
+/// ReduxMiddlewareContext
 ///
-/// What a ``Middleware`` receives for one action: the live `state`, a `dispatch` to
+/// What a ``ReduxMiddleware`` receives for one action: the live `state`, a `dispatch` to
 /// publish NEW actions, the `action` being intercepted, and the subscription registry
 /// hooks (`subscribe`/`unsubscribe`, State→Action).
 ///
 /// Like ``ReduxReducerContext`` it carries the live `state`, but a middleware only READS
 /// it (the reducer is the sole writer); it influences state only via dispatch/subscriptions.
 /// The module lift projects the local state from `state` via ``ReduxModuleMap/toState``.
-public struct MiddlewareContext<S, A>: Sendable
+public struct ReduxMiddlewareContext<S, A>: Sendable
 where S: ReduxState, A: ReduxAction
 {
   /// The live state — read-only by convention (do NOT mutate from a middleware).
@@ -26,16 +26,16 @@ where S: ReduxState, A: ReduxAction
   public let action: A
 
   /// Registers a subscription (id, origin, predicate, handler). Provided by the worker.
-  let register: RegisterSubscription<S, A>
+  let register: ReduxRegisterSubscription<S, A>
 
   /// Removes a subscription by id. Provided by the worker.
-  let unregister: UnregisterSubscription
+  let unregister: ReduxUnregisterSubscription
 
   init(_ state: S,
        dispatch: @escaping @Sendable (A) -> Void,
        action: A,
-       register: @escaping RegisterSubscription<S, A>,
-       unregister: @escaping UnregisterSubscription)
+       register: @escaping ReduxRegisterSubscription<S, A>,
+       unregister: @escaping ReduxUnregisterSubscription)
   {
     self.state = state
     self.dispatch = dispatch
@@ -43,18 +43,28 @@ where S: ReduxState, A: ReduxAction
     self.register = register
     self.unregister = unregister
   }
+
+  /// Destructured members: `(state, dispatch, action, subscribe, unsubscribe)`.
+  public var args: ReduxMiddlewareArgs<S, A>
+  {
+    ( state,
+      dispatch,
+      action,
+      ReduxMiddlewareSubscribe(origin: action, register: register),
+      unregister )
+  }
 }
 
 
-public extension MiddlewareContext
+public extension ReduxMiddlewareContext
 {
   /// Registers a State→Action subscription: when `condition(state)` turns true, the
   /// worker dispatches `action(state)`. Returns the id (for `unsubscribe`).
   @MainActor
   @discardableResult
   func subscribe(id: String = UUID().uuidString,
-                 when condition: @escaping SubscriptionPredicate<S>,
-                 then action: @escaping SubscriptionHandler<S, A>) -> String
+                 when condition: @escaping ReduxSubscriptionPredicate<S>,
+                 then action: @escaping ReduxSubscriptionHandler<S, A>) -> String
   {
     register(id, self.action, condition, action)
     return id
@@ -64,7 +74,7 @@ public extension MiddlewareContext
   @MainActor
   @discardableResult
   func subscribe(id: String = UUID().uuidString,
-                 when condition: @escaping SubscriptionPredicate<S>,
+                 when condition: @escaping ReduxSubscriptionPredicate<S>,
                  then action: @escaping @MainActor @Sendable () -> A) -> String
   {
     register(id, self.action, condition) { _ in action() }

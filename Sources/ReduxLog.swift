@@ -15,16 +15,16 @@ where S: ReduxState, A: ReduxAction
   case reducer(id: String, action: A, duration: Duration, exit: ReduxReducerExit)
 
   /// A middleware produced a (synchronous) exit for an action.
-  case middleware(id: String, action: A, duration: Duration, exit: MiddlewareExit<S, A>)
+  case middleware(id: String, action: A, duration: Duration, exit: ReduxMiddlewareExit<S, A>)
 
   /// A resolver handled an error for an action.
-  case resolver(id: String, action: A, duration: Duration, exit: ResolverExit<A>, error: SendableError)
+  case resolver(id: String, action: A, duration: Duration, exit: ReduxResolverExit<A>, error: ReduxSendableError)
 
   /// A subscription lifecycle/firing event (State→Action).
-  case subscription(SubscriptionLog<A>)
+  case subscription(ReduxSubscriptionLog<A>)
 
   /// A snapshot lifecycle event (single-shot resolution or stream frame/lifecycle).
-  case snapshot(SnapshotLog<A>)
+  case snapshot(ReduxSnapshotLog<A>)
 
   /// Backpressure diagnostic: an `action.id` exceeded the configured rate — `count`
   /// occurrences within `window`. Pure warning (no drop); the stream stays unbounded.
@@ -35,13 +35,13 @@ where S: ReduxState, A: ReduxAction
 }
 
 
-/// SubscriptionLog
+/// ReduxSubscriptionLog
 ///
-/// Lifecycle/firing events for a State→Action ``Subscription`` — the worker emits these as
+/// Lifecycle/firing events for a State→Action ``ReduxSubscription`` — the worker emits these as
 /// `ReduxLog.subscription(_:)`. Carries `origin` (middleware id), the subscription id,
 /// `registeredBy` (the action during which it was registered), and the elapsed time
 /// (plus `trigger`, the action dispatched on firing, for `executed`).
-public enum SubscriptionLog<A: ReduxAction>: Sendable
+public enum ReduxSubscriptionLog<A: ReduxAction>: Sendable
 {
   /// A subscription was registered.
   case subscribed(origin: String, id: String, registeredBy: A, duration: Duration)
@@ -54,18 +54,18 @@ public enum SubscriptionLog<A: ReduxAction>: Sendable
 }
 
 
-/// SnapshotLog
+/// ReduxSnapshotLog
 ///
 /// Lifecycle/firing events for the snapshot dispatch paths — the worker emits these as
 /// `ReduxLog.snapshot(_:)`. Covers the single-shot resolution (`resolved`/`failed`) and
 /// the stream (`streamRegistered`/`streamFrame`/`streamEncodeFailed`/`streamFinished`).
-public enum SnapshotLog<A: ReduxAction>: Sendable
+public enum ReduxSnapshotLog<A: ReduxAction>: Sendable
 {
   /// A single-shot snapshot settled and was encoded (`byteCount` bytes of JSON).
   case resolved(action: A, byteCount: Int, duration: Duration)
 
   /// A single-shot snapshot failed (pipeline error, rejection, teardown, or encode throw).
-  case failed(action: A, error: SendableError)
+  case failed(action: A, error: ReduxSendableError)
 
   /// A snapshot stream was registered against an arming action.
   case streamRegistered(id: String, action: A, emitInitial: Bool)
@@ -74,15 +74,15 @@ public enum SnapshotLog<A: ReduxAction>: Sendable
   case streamFrame(id: String, byteCount: Int)
 
   /// A stream's encode threw for one frame; delivered as `.failure`, stream stays alive.
-  case streamEncodeFailed(id: String, error: SendableError)
+  case streamEncodeFailed(id: String, error: ReduxSendableError)
 
   /// A stream ended; `reason` says why.
-  case streamFinished(id: String, reason: StreamFinishReason)
+  case streamFinished(id: String, reason: ReduxStreamFinishReason)
 }
 
 
 /// Why a snapshot stream ended.
-public enum StreamFinishReason: Sendable
+public enum ReduxStreamFinishReason: Sendable
 {
   /// The required `count`/`time`/`timeOrCount` bound was reached.
   case limitReached

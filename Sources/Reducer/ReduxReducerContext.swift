@@ -23,8 +23,8 @@ where S: ReduxState, A: ReduxAction
     self.action = action
   }
 
-  /// Destructured pair of `(state, action)`.
-  public var args: (S, A)
+  /// Destructured members: `(state, action)`.
+  public var args: ReduxReducerArgs<S, A>
   {
     (state, action)
   }

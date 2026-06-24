@@ -16,7 +16,7 @@ func deinit_cancelsInFlightChildTask() async
   let started = Box()
   let cancelled = Box()
 
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action
     {

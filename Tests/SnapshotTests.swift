@@ -66,9 +66,9 @@ func snapshot_resolvesAfterReduce() async throws
 @Test
 func snapshot_exitDoneResolvesWithoutReduce() async throws
 {
-  // Middleware absorbs the action (`.exit(.done)`): no reduce, but the continuation MUST
+  // ReduxMiddleware absorbs the action (`.exit(.done)`): no reduce, but the continuation MUST
   // still resolve (else the caller hangs forever).
-  let absorb = AnyMiddleware<AppState, AppActions>(id: "absorb") { _ in .exit(.done) }
+  let absorb = AnyReduxMiddleware<AppState, AppActions>(id: "absorb") { _ in .exit(.done) }
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer], middlewares: [absorb])
 
   let result = await store.dispatch(.increment, snapshot: CounterSnapshot.self)
@@ -83,9 +83,9 @@ func snapshot_exitDoneResolvesWithoutReduce() async throws
 @Test
 func snapshot_unhandledErrorFails() async
 {
-  // Middleware routes to the resolver; with no resolver the default fail terminates → the
+  // ReduxMiddleware routes to the resolver; with no resolver the default fail terminates → the
   // single-shot resolves to `.failure`.
-  let boom = AnyMiddleware<AppState, AppActions>(id: "boom") { _ in .exit(.resolve(TestError.boom)) }
+  let boom = AnyReduxMiddleware<AppState, AppActions>(id: "boom") { _ in .exit(.resolve(TestError.boom)) }
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer], middlewares: [boom])
 
   let result = await store.dispatch(.increment, snapshot: CounterSnapshot.self)
@@ -101,7 +101,7 @@ func snapshot_unhandledErrorFails() async
 func snapshot_deferredResumeResolves() async throws
 {
   // A suspending effect resumes the chain; the terminal must fire on the resumed reduce.
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action { return .deferred { _ in .next } }
     return .next
@@ -122,7 +122,7 @@ func stream_emitsFrameOnTriggerChange() async
 {
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer])
 
-  let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     CounterSnapshot.self, changeOn: { $0.counter }, limit: .count(1)))
 
   var frames: [ReduxEncodedSnapshot] = []
@@ -138,7 +138,7 @@ func stream_emitInitialEmitsCurrentThenBounds() async
 {
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer])
 
-  let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     CounterSnapshot.self, changeOn: { $0.counter }, emitInitial: true, limit: .count(1)))
 
   var frames: [ReduxEncodedSnapshot] = []
@@ -154,7 +154,7 @@ func stream_countBoundsTheSequence() async
 {
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer])
 
-  let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     CounterSnapshot.self, changeOn: { $0.counter }, limit: .count(2)))
 
   var frames: [ReduxEncodedSnapshot] = []
@@ -176,7 +176,7 @@ func stream_edgeTriggerSkipsUnchangedKey() async
 
   // Trigger key is constant → after priming, no reduce ever changes it: only `emitInitial`
   // produces a frame, and the count bound is then met.
-  let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     CounterSnapshot.self, changeOn: { _ in 0 }, emitInitial: true, limit: .count(1)))
 
   var frames: [ReduxEncodedSnapshot] = []
@@ -196,7 +196,7 @@ func stream_encodeFailureToleratedNotCounted() async
 {
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer])
 
-  let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     NaNSnapshot.self, changeOn: { $0.counter }, limit: .count(2)))
 
   var frames: [ReduxEncodedSnapshot] = []
@@ -219,7 +219,7 @@ func stream_timeBoundEndsTheStream() async
 {
   let store = ReduxStore(initialState: AppState(), reducers: [mainReducer])
 
-  let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     CounterSnapshot.self, changeOn: { $0.counter }, limit: .time(.milliseconds(50))))
 
   var frames: [ReduxEncodedSnapshot] = []
@@ -239,7 +239,7 @@ func stream_consumerCancelUnregisters() async
   // owner, so the stream is released → `onTermination` fires (a retained value would not).
   let received = await Task { @MainActor in
     var n = 0
-    let stream = store.dispatch(.increment, snapshot: SnapshotSpec(
+    let stream = store.dispatch(.increment, snapshot: ReduxSnapshotSpec(
       CounterSnapshot.self, changeOn: { $0.counter }, limit: .count(100)))
     for await _ in stream { n += 1; break }        // cancel after the first frame
     return n
@@ -258,7 +258,7 @@ func stream_finishesOnStoreTeardown() async
   var store: ReduxStore<AppState, AppActions>? =
     ReduxStore(initialState: AppState(), reducers: [mainReducer])
 
-  let stream = store!.dispatch(.increment, snapshot: SnapshotSpec(
+  let stream = store!.dispatch(.increment, snapshot: ReduxSnapshotSpec(
     CounterSnapshot.self, changeOn: { $0.counter }, limit: .count(100)))   // far from its bound
 
   let started = Box()

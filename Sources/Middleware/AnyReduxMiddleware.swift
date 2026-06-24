@@ -4,45 +4,45 @@
 import Foundation
 
 
-/// AnyMiddleware
+/// AnyReduxMiddleware
 ///
-/// Type-erased ``Middleware`` stored as a closure. Holds heterogeneous middlewares in
+/// Type-erased ``ReduxMiddleware`` stored as a closure. Holds heterogeneous middlewares in
 /// one array, and — via the `map:` init — lifts a module-local `LS`/`LA` middleware into
 /// the central `S`/`A` space, reusing the SAME ``ReduxModuleMap`` as the reducer/slice.
-public struct AnyMiddleware<S, A>: Middleware
+public struct AnyReduxMiddleware<S, A>: ReduxMiddleware
 where S: ReduxState, A: ReduxAction
 {
   /// A stable identifier for logging and lift.
   public let id: String
 
   /// The intercepting closure.
-  let handler: MiddlewareHandler<S, A>
+  let handler: ReduxMiddlewareHandler<S, A>
 
   /// Creates a type-erased middleware from a closure.
   public init(id: String,
-              run handler: @escaping MiddlewareHandler<S, A>)
+              run handler: @escaping ReduxMiddlewareHandler<S, A>)
   {
     self.id = id
     self.handler = handler
   }
 
-  /// Wraps an existing ``Middleware`` conformer via type erasure.
+  /// Wraps an existing ``ReduxMiddleware`` conformer via type erasure.
   public init<M>(_ middleware: M)
-  where M: Middleware, M.S == S, M.A == A
+  where M: ReduxMiddleware, M.S == S, M.A == A
   {
     self.id = middleware.id
     self.handler = { context in try middleware.run(context) }
   }
 
   @MainActor
-  public func run(_ context: MiddlewareContext<S, A>) throws -> MiddlewareExit<S, A>
+  public func run(_ context: ReduxMiddlewareContext<S, A>) throws -> ReduxMiddlewareExit<S, A>
   {
     try handler(context)
   }
 }
 
 
-public extension AnyMiddleware
+public extension AnyReduxMiddleware
 {
   /// Lifts a module-local middleware into the central space via a ``ReduxModuleMap``.
   ///
@@ -52,12 +52,12 @@ public extension AnyMiddleware
   /// local `readOnly` (hopped to the main actor).
   init<M>(_ middleware: M,
            moduleMap: ReduxModuleMap<M.S, M.A, S, A>)
-  where M: Middleware
+  where M: ReduxMiddleware
   {
     self.id = middleware.id
 
     // local exit/resume → global, reused by the sync switch and the deferred resume.
-    let liftTarget: @Sendable (MiddlewareExitTarget<M.A>) -> MiddlewareExitTarget<A> = { target in
+    let liftTarget: @Sendable (ReduxMiddlewareExitTarget<M.A>) -> ReduxMiddlewareExitTarget<A> = { target in
       switch target
       {
         case .reduce:            return .reduce
@@ -66,7 +66,7 @@ public extension AnyMiddleware
         case .done:              return .done
       }
     }
-    let liftResume: @Sendable (MiddlewareResumeExit<M.A>) -> MiddlewareResumeExit<A> = { resume in
+    let liftResume: @Sendable (ReduxMiddlewareResumeExit<M.A>) -> ReduxMiddlewareResumeExit<A> = { resume in
       switch resume
       {
       case .next:            return .next
@@ -79,7 +79,7 @@ public extension AnyMiddleware
       guard let localAction = moduleMap.toAction(global.action) else { return .defaultNext }
 
       let localState = moduleMap.toState(global.state)
-      let local = MiddlewareContext<M.S, M.A>(
+      let local = ReduxMiddlewareContext<M.S, M.A>(
         localState,
         dispatch: { global.dispatch(moduleMap.toRootAction($0)) },
         action: localAction,

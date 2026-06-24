@@ -4,13 +4,13 @@
 import Foundation
 
 
-/// DispatchRateLimit
+/// ReduxDispatchRateLimit
 ///
 /// Opt-in, per-dispatch rate control for high-frequency SAMPLE-STREAM actions (AR frames,
 /// sensors). Default `.none` → unbounded, never dropped (logical actions stay deterministic
 /// / replayable). Drops are observable (logged). Distinct from the rejected
 /// capacity/suspend/generation cluster. See memory `redux-rate-control`.
-public enum DispatchRateLimit: Sendable
+public enum ReduxDispatchRateLimit: Sendable
 {
   /// No limit: the action always enters the queue (default).
   case none

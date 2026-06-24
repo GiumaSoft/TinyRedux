@@ -9,16 +9,16 @@ extension ReduxStore.Worker {
 
   /// Element transported by the dispatcher stream: the action, whether the enqueue
   /// incremented a `.limit` counter (so the worker decrements it once processed), and an
-  /// optional single-shot ``SnapshotRequest`` riding along to the pipeline terminal
+  /// optional single-shot ``ReduxSnapshotRequest`` riding along to the pipeline terminal
   /// (`nil` on the normal, non-snapshot dispatch path).
-  typealias TaggedActionEvent = (action: A, counted: Bool, onTerminal: SnapshotRequest<S>?)
+  typealias TaggedActionEvent = (action: A, counted: Bool, onTerminal: ReduxSnapshotRequest<S>?)
 
 
   /// Dispatcher
   ///
   /// Serializes action dispatch through a single UNBOUNDED `AsyncStream`. Nonisolated write
   /// side (`tryEnqueue`) → main-actor read side (`events`), drained by the Worker loop.
-  /// Optional per-`action.id` rate-control (``DispatchRateLimit``) gates admission BEFORE
+  /// Optional per-`action.id` rate-control (``ReduxDispatchRateLimit``) gates admission BEFORE
   /// the yield, under a `Mutex` (dispatch is nonisolated → concurrent). `.none` is lock-free
   /// (the continuation's `yield` is already thread-safe).
   final class Dispatcher: Sendable
@@ -50,8 +50,8 @@ extension ReduxStore.Worker {
     @discardableResult
     nonisolated
     func tryEnqueue(_ action: A,
-                    rate limit: DispatchRateLimit = .none,
-                    onTerminal: SnapshotRequest<S>? = nil) -> Result<Void, ReduxError>
+                    rate limit: ReduxDispatchRateLimit = .none,
+                    onTerminal: ReduxSnapshotRequest<S>? = nil) -> Result<Void, ReduxError>
     {
       switch limit
       {
@@ -100,7 +100,7 @@ extension ReduxStore.Worker {
 
     /// Yields the tagged event; maps the `YieldResult` to a `Result`.
     private nonisolated
-    func yield(_ action: A, counted: Bool, onTerminal: SnapshotRequest<S>?) -> Result<Void, ReduxError>
+    func yield(_ action: A, counted: Bool, onTerminal: ReduxSnapshotRequest<S>?) -> Result<Void, ReduxError>
     {
       switch continuation.yield((action: action, counted: counted, onTerminal: onTerminal))
       {

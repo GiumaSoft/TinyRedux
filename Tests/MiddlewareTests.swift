@@ -1,5 +1,5 @@
 //
-//  Middleware layer — INTERCEPTION ONLY: the chain runs before the reducers and
+//  ReduxMiddleware layer — INTERCEPTION ONLY: the chain runs before the reducers and
 //  may pass through (.next/.defaultNext), redirect (.nextAs), or short-circuit
 //  (.exit). Plus the module lift via `ReduxModuleMap`.
 //
@@ -26,7 +26,7 @@ private func settle(until predicate: () -> Bool, max attempts: Int = 1_000) asyn
 @Test
 func middleware_nextForwardsToReducer() async
 {
-  let passthrough = AnyMiddleware<AppState, AppActions>(id: "passthrough") { _ in .next }
+  let passthrough = AnyReduxMiddleware<AppState, AppActions>(id: "passthrough") { _ in .next }
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],
                          middlewares: [passthrough])
@@ -42,7 +42,7 @@ func middleware_nextForwardsToReducer() async
 @Test
 func middleware_exitShortCircuitsReducer() async
 {
-  let block = AnyMiddleware<AppState, AppActions>(id: "block")
+  let block = AnyReduxMiddleware<AppState, AppActions>(id: "block")
   { context in
     if case .increment = context.action { return .exit(.done) }
     return .next
@@ -62,7 +62,7 @@ func middleware_exitShortCircuitsReducer() async
 @Test
 func middleware_nextAsRedirects() async
 {
-  let redirect = AnyMiddleware<AppState, AppActions>(id: "redirect")
+  let redirect = AnyReduxMiddleware<AppState, AppActions>(id: "redirect")
   { context in
     if case .increment = context.action { return .nextAs(.decrement) }
     return .next
@@ -83,14 +83,14 @@ func middleware_nextAsRedirects() async
 func middleware_runInDeclarationOrder() async
 {
   // m1 redirects .increment → .decrement; m2 must then SEE .decrement (proves order).
-  let m1 = AnyMiddleware<AppState, AppActions>(id: "m1")
+  let m1 = AnyReduxMiddleware<AppState, AppActions>(id: "m1")
   { context in
     if case .increment = context.action { return .nextAs(.decrement) }
     return .next
   }
 
   let box = SeenBox()
-  let m2 = AnyMiddleware<AppState, AppActions>(id: "m2")
+  let m2 = AnyReduxMiddleware<AppState, AppActions>(id: "m2")
   { context in
     box.record(context.action)
     return .next
@@ -113,12 +113,12 @@ func middleware_runInDeclarationOrder() async
 func middleware_liftSeesLocalActionAndRedirects() async
 {
   // A module-local middleware over Counter; redirect local .increment → .decrement.
-  let local = AnyMiddleware<CounterModuleState, CounterModuleActions>(id: "localCounter")
+  let local = AnyReduxMiddleware<CounterModuleState, CounterModuleActions>(id: "localCounter")
   { context in
     if case .increment = context.action { return .nextAs(.decrement) }
     return .next
   }
-  let lifted = AnyMiddleware(local, moduleMap: DemoModule.counter)
+  let lifted = AnyReduxMiddleware(local, moduleMap: DemoModule.counter)
 
   let store = ReduxStore(initialState: DemoAppState(),
                          reducers: [AnyReduxReducer(counterReducer, moduleMap: DemoModule.counter)],
@@ -137,9 +137,9 @@ func middleware_liftSkipsForeignAction() async
 {
   // Lifted Counter middleware that would .exit on its local action — but a foreign
   // (user) action must pass straight through (.defaultNext), reaching the reducer.
-  let local = AnyMiddleware<CounterModuleState, CounterModuleActions>(id: "localCounter")
+  let local = AnyReduxMiddleware<CounterModuleState, CounterModuleActions>(id: "localCounter")
   { _ in .exit(.done) }
-  let lifted = AnyMiddleware(local, moduleMap: DemoModule.counter)
+  let lifted = AnyReduxMiddleware(local, moduleMap: DemoModule.counter)
 
   let store = ReduxStore(initialState: DemoAppState(),
                          reducers: [AnyReduxReducer(userReducer, moduleMap: DemoModule.user)],
@@ -163,7 +163,7 @@ func middleware_defaultNextForwardsToReducer() async
 {
   // `.defaultNext` ("not mine", pass-through) must still reach the reducer, exactly
   // like `.next` — only the logging classification differs.
-  let passthrough = AnyMiddleware<AppState, AppActions>(id: "defaultNext") { _ in .defaultNext }
+  let passthrough = AnyReduxMiddleware<AppState, AppActions>(id: "defaultNext") { _ in .defaultNext }
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],
                          middlewares: [passthrough])
@@ -199,7 +199,7 @@ func middleware_dispatchReentersPipeline() async
   // is reduced (synchronous effect-style loop via `dispatch`, no `.task`). One-shot
   // guard keeps it from looping forever.
   let once = OneShot()
-  let reenter = AnyMiddleware<AppState, AppActions>(id: "reenter")
+  let reenter = AnyReduxMiddleware<AppState, AppActions>(id: "reenter")
   { context in
     if case .increment = context.action, once.fireOnce()
     {
@@ -223,14 +223,14 @@ func middleware_dispatchReentersPipeline() async
 func middleware_earlyExitSkipsLaterMiddlewareAndReducers() async
 {
   // m1 exits on .increment → m2 must never see the action AND the reducer is skipped.
-  let m1 = AnyMiddleware<AppState, AppActions>(id: "m1exit")
+  let m1 = AnyReduxMiddleware<AppState, AppActions>(id: "m1exit")
   { context in
     if case .increment = context.action { return .exit(.done) }
     return .next
   }
 
   let box = SeenBox()
-  let m2 = AnyMiddleware<AppState, AppActions>(id: "m2spy")
+  let m2 = AnyReduxMiddleware<AppState, AppActions>(id: "m2spy")
   { context in
     box.record(context.action)
     return .next
@@ -255,14 +255,14 @@ func middleware_nextAsChainsAcrossTwoMiddlewares() async
   // m1: .increment → .nextAs(.decrement); m2 SEES .decrement and itself
   // .nextAs(.increment) → the reducer sees the final .increment. Both transforms
   // compound across the chain.
-  let m1 = AnyMiddleware<AppState, AppActions>(id: "m1redirect")
+  let m1 = AnyReduxMiddleware<AppState, AppActions>(id: "m1redirect")
   { context in
     if case .increment = context.action { return .nextAs(.decrement) }
     return .next
   }
 
   let box = SeenBox()
-  let m2 = AnyMiddleware<AppState, AppActions>(id: "m2redirect")
+  let m2 = AnyReduxMiddleware<AppState, AppActions>(id: "m2redirect")
   { context in
     box.record(context.action)
     if case .decrement = context.action { return .nextAs(.increment) }
@@ -286,7 +286,7 @@ func middleware_nextAsChainsAcrossTwoMiddlewares() async
 func middleware_readsStateForDecision() async
 {
   // A middleware reading `context.state` (read-only) to branch its control flow.
-  let gate = AnyMiddleware<AppState, AppActions>(id: "gate")
+  let gate = AnyReduxMiddleware<AppState, AppActions>(id: "gate")
   { context in
     if context.state.counter >= 5 { return .exit(.done) }   // refuse once the ceiling is hit
     return .next
@@ -309,7 +309,7 @@ func middleware_liftDispatchReembedsLocalAction() async
   // The lifted local middleware dispatches a LOCAL action; the lift must re-embed it
   // to the root (toRootAction on the DISPATCH path) so it is reduced. One-shot guard.
   let once = OneShot()
-  let local = AnyMiddleware<CounterModuleState, CounterModuleActions>(id: "localReenter")
+  let local = AnyReduxMiddleware<CounterModuleState, CounterModuleActions>(id: "localReenter")
   { context in
     if case .increment = context.action, once.fireOnce()
     {
@@ -317,7 +317,7 @@ func middleware_liftDispatchReembedsLocalAction() async
     }
     return .next
   }
-  let lifted = AnyMiddleware(local, moduleMap: DemoModule.counter)
+  let lifted = AnyReduxMiddleware(local, moduleMap: DemoModule.counter)
 
   let store = ReduxStore(initialState: DemoAppState(),
                          reducers: [AnyReduxReducer(counterReducer, moduleMap: DemoModule.counter)],
@@ -336,9 +336,9 @@ func middleware_liftExitBlocksOnlyOwnModule() async
 {
   // A lifted Counter middleware that .exit on its own action must block ONLY the
   // counter reducer — a foreign (user) action still flows through and is reduced.
-  let local = AnyMiddleware<CounterModuleState, CounterModuleActions>(id: "blockCounter")
+  let local = AnyReduxMiddleware<CounterModuleState, CounterModuleActions>(id: "blockCounter")
   { _ in .exit(.done) }
-  let lifted = AnyMiddleware(local, moduleMap: DemoModule.counter)
+  let lifted = AnyReduxMiddleware(local, moduleMap: DemoModule.counter)
 
   let store = ReduxStore(initialState: DemoAppState(),
                          reducers: [AnyReduxReducer(counterReducer, moduleMap: DemoModule.counter),

@@ -15,10 +15,10 @@ extension ReduxStore {
     }
   }
 
-  /// Publishes a single action with an opt-in ``DispatchRateLimit`` (e.g. `.throttle`,
+  /// Publishes a single action with an opt-in ``ReduxDispatchRateLimit`` (e.g. `.throttle`,
   /// `.limit`) for high-frequency sources. Thread-safe, any context.
   nonisolated
-  public func dispatch(_ action: A, rate: DispatchRateLimit)
+  public func dispatch(_ action: A, rate: ReduxDispatchRateLimit)
   {
     worker.dispatch(action, rate: rate)
   }

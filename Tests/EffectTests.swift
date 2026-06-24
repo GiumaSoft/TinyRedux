@@ -1,6 +1,6 @@
 //
 //  Async effects: `.task` (fire-and-forget, chain continues) and `.deferred` (suspends,
-//  resumes via MiddlewareResumeExit). Errors route to the resolver.
+//  resumes via ReduxMiddlewareResumeExit). Errors route to the resolver.
 //
 
 import Testing
@@ -13,7 +13,7 @@ import Foundation
 func task_fireAndForget_reDispatches() async
 {
   let once = Box()
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action, !once.flag
     {
@@ -39,12 +39,12 @@ func task_fireAndForget_reDispatches() async
 func task_throw_routesToResolver_originalStillReduced() async
 {
   let box = Box()
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action { return .task { _ in throw TestError.boom } }
     return .next
   }
-  let recover = AnyResolver<AppState, AppActions>(id: "recover") { _ in box.mark(); return .exit(.done) }
+  let recover = AnyReduxResolver<AppState, AppActions>(id: "recover") { _ in box.mark(); return .exit(.done) }
 
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],
@@ -63,7 +63,7 @@ func task_throw_routesToResolver_originalStillReduced() async
 @Test
 func deferred_suspendsThenResumesWithReduce() async
 {
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action { return .deferred { _ in .exit(.reduce) } }
     return .next
@@ -84,7 +84,7 @@ func deferred_suspendsThenResumesWithReduce() async
 @Test
 func deferred_resumesWithNextAs() async
 {
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action { return .deferred { _ in .nextAs(.decrement) } }
     return .next
@@ -106,12 +106,12 @@ func deferred_resumesWithNextAs() async
 func deferred_throw_routesToResolver() async
 {
   let box = Box()
-  let effect = AnyMiddleware<AppState, AppActions>(id: "effect")
+  let effect = AnyReduxMiddleware<AppState, AppActions>(id: "effect")
   { context in
     if case .increment = context.action { return .deferred { _ in throw TestError.boom } }
     return .next
   }
-  let recover = AnyResolver<AppState, AppActions>(id: "recover") { _ in box.mark(); return .exit(.done) }
+  let recover = AnyReduxResolver<AppState, AppActions>(id: "recover") { _ in box.mark(); return .exit(.done) }
 
   let store = ReduxStore(initialState: AppState(),
                          reducers: [mainReducer],

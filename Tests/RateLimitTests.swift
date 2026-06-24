@@ -1,5 +1,5 @@
 //
-//  DispatchRateLimit: opt-in per-dispatch gating at the dispatcher. `.none` admits all;
+//  ReduxDispatchRateLimit: opt-in per-dispatch gating at the dispatcher. `.none` admits all;
 //  `.limit(N)` caps pending per id; `.throttle(T)` admits one per window (leading edge).
 //
 

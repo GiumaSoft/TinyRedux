@@ -23,9 +23,9 @@ where S: ReduxState, A: ReduxAction
 
   public init( initialState state: S,
                reducers: [AnyReduxReducer<S, A>],
-               middlewares: [AnyMiddleware<S, A>] = [],
-               resolvers: [AnyResolver<S, A>] = [],
-               options: StoreOptions = .init(),
+               middlewares: [AnyReduxMiddleware<S, A>] = [],
+               resolvers: [AnyReduxResolver<S, A>] = [],
+               options: ReduxStoreOptions = .init(),
                onLog: ReduxLogHandler<S, A>? = nil )
   {
     self._state = state

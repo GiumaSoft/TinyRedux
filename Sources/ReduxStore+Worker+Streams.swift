@@ -19,7 +19,7 @@ extension ReduxStore.Worker
 
     /// Encoding threw; a `.failure` was yielded, the stream stays alive, and the count
     /// bound was NOT decremented (one bad reading must not kill a live feed).
-    case encodeFailed(SendableError)
+    case encodeFailed(ReduxSendableError)
 
     /// A frame was yielded AND the count bound is now exhausted → the worker removes it.
     case finished(byteCount: Int)

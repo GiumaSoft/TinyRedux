@@ -10,7 +10,7 @@ extension ReduxStore {
   /// emitted whenever the spec's edge-trigger key changes at a reduce terminal.
   ///
   /// Streaming twin of the single-shot ``dispatch(_:snapshot:)``: `snapshot: Type.self`
-  /// returns ONE value, `snapshot: SnapshotSpec(…)` returns a STREAM. The entry is
+  /// returns ONE value, `snapshot: ReduxSnapshotSpec(…)` returns a STREAM. The entry is
   /// registered *before* the arming action is enqueued (same MainActor turn), so a state
   /// change caused by the arming action itself is not missed.
   ///
@@ -25,7 +25,7 @@ extension ReduxStore {
   ///   - spec: What to capture, when to emit, and how the stream is bounded.
   /// - Returns: An `AsyncStream` of ``ReduxEncodedSnapshot`` frames.
   nonisolated
-  public func dispatch(_ action: A, snapshot spec: SnapshotSpec<S>)
+  public func dispatch(_ action: A, snapshot spec: ReduxSnapshotSpec<S>)
     -> AsyncStream<ReduxEncodedSnapshot>
   {
     let id = UUID().uuidString

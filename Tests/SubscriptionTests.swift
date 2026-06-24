@@ -13,7 +13,7 @@ import Foundation
 func subscription_firesStateToAction() async
 {
   let once = Box()
-  let setup = AnyMiddleware<AppState, AppActions>(id: "setup")
+  let setup = AnyReduxMiddleware<AppState, AppActions>(id: "setup")
   { context in
     if case .increment = context.action, !once.flag
     {
@@ -40,7 +40,7 @@ func subscription_firesStateToAction() async
 @Test
 func subscription_unsubscribeStopsReaction() async
 {
-  let setup = AnyMiddleware<AppState, AppActions>(id: "setup")
+  let setup = AnyReduxMiddleware<AppState, AppActions>(id: "setup")
   { context in
     if case .increment = context.action
     {
