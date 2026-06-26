@@ -10,7 +10,7 @@ import Observation
 /// SwiftUI's `Binding` it carries no graph/transaction machinery and its `set`
 /// writes straight through — so it is used INTERNALLY to back a mapped state's
 /// projected properties, never handed to a View (Views mutate via `dispatch`).
-public struct ReduxBinding<V>: Sendable
+public struct ReduxBinding<V: Sendable>: Sendable
 {
   private let read: @MainActor @Sendable () -> V
   private let write: @MainActor @Sendable (V) -> Void
@@ -40,7 +40,6 @@ public extension ReduxBinding {
 
   /// Binding backed by an internal `@Observable` storage: real write-through with
   /// no root. For tests and standalone previews.
-  @MainActor
   static func projected(_ initial: V) -> ReduxBinding<V>
   {
     let storage = ReduxBindingValue(initial)
@@ -53,14 +52,14 @@ public extension ReduxBinding {
 ///
 /// Internal `@Observable` storage used by ``ReduxBinding/projected(_:)`` so a mapped
 /// state is observable and write-through even without a root (tests/previews).
-@MainActor
 @Observable
-public final class ReduxBindingValue<V>
+@MainActor
+public final class ReduxBindingValue<V: Sendable>
 {
   public var value: V
 
-  public init(_ value: V)
+  public nonisolated init(_ value: V)
   {
-    self.value = value
+    self._value = value
   }
 }
